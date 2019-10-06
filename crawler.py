@@ -1,4 +1,4 @@
-# 출처 : https://stackoverflow.com/questions/55705376/valueerror-when-scraping-tripadvisor-for-reviews-with-beautifulsoup
+# 출처 : https://github.com/susanli2016/NLP-with-Python/blob/master/Web%20scraping%20Hilton%20Hawaiian%20Village%20TripAdvisor%20Reviews.py
 
 import requests
 from bs4 import BeautifulSoup
@@ -33,7 +33,7 @@ def post_soup(session, url, params, show=False):
     else:
         return BeautifulSoup(r.text, 'html.parser')
 
-def scrape(url, lang='en'):
+def scrape(url, lang='ALL'):
 
     # create session to keep all cookies (etc.) between requests
     session = requests.Session()
@@ -75,6 +75,7 @@ def parse(session, url):
         subpage_url = url_template.format(offset)
 
         subpage_items = parse_reviews(session, subpage_url)
+
         if not subpage_items:
             break
 
@@ -83,7 +84,7 @@ def parse(session, url):
         if len(subpage_items) < 5:
             break
 
-        offset += 5
+        offset += 10
 
     return items
 
@@ -118,7 +119,7 @@ def parse_reviews(session, url):
 
     print('[parse_reviews] url:', url)
 
-    soup =  get_soup(session, url)
+    soup = get_soup(session, url)
 
     if not soup:
         print('[parse_reviews] no soup:', url)
@@ -139,6 +140,8 @@ def parse_reviews(session, url):
 
     for idx, review in enumerate(soup.find_all('div', class_='reviewSelector')):
 
+        # 유저 신뢰도
+        '''
         badgets = review.find_all('span', class_='badgetext')
         if len(badgets) > 0:
             contributions = badgets[0].text
@@ -154,19 +157,25 @@ def parse_reviews(session, url):
             user_loc = user_loc.text
         else:
             user_loc = ''
+        '''
 
-        bubble_rating = review.select_one('span.ui_bubble_rating')['class']
-        bubble_rating = bubble_rating[1].split('_')[-1]
+        # 평점
+        # bubble_rating = review.select_one('span.ui_bubble_rating')['class']
+        # bubble_rating = int(bubble_rating[1].split('_')[-1]) // 10
 
         item = {
-            'review_body': review.find('p', class_='partial_entry').text,
-            'review_date': review.find('span', class_='ratingDate')['title'], # 'ratingDate' instead of 'relativeDate'
+            'review_title' : review.find('span', class_='noQuotes').text,
+            'review_body': review.find('p', class_='partial_entry').text
+            # 리뷰 날짜
+            # 'review_date': review.find('span', class_='ratingDate')['title'],
        }
 
         items.append(item)
+        '''
         print('\n--- review ---\n')
         for key,val in item.items():
             print(' ', key, ':', val)
+        '''
 
     print()
 
@@ -195,15 +204,14 @@ start_urls = [
     'https://www.tripadvisor.com/Attraction_Review-g294197-d324888-Reviews-Gyeongbokgung_Palace-Seoul.html',
 ]
 
-headers = [ 
-    DB_COLUMN, 
-    DB_COLUMN1, 
-]
+headers = ['review_title','review_body']
+
+lang = 'en'
 
 for url in start_urls:
 
     # get all reviews for 'url'
-    items = scrape(url)
+    items = scrape(url, lang)
 
     if not items:
         print('No reviews')
