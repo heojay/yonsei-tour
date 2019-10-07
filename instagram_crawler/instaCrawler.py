@@ -3,6 +3,11 @@ from selenium.common.exceptions import NoSuchElementException
 from bs4 import BeautifulSoup
 import pandas as pd
 
+'''
+To Do: remove tags from content / infinity scroll
+'''
+
+
 tb = pd.DataFrame(columns=['username','content','location'])
 d = webdriver.Chrome('/Users/yerinkwon/yonsei-bus/instagram_crawler/chromedriver')
 d.implicitly_wait(3)
@@ -37,9 +42,3 @@ for link in links:
 	i+=1
 		
 tb.to_csv("result.csv")
-'''
-username: body > div._2dDPU.vCf6V > div.zZYga > div > article > header > div.o-MQd.z8cbW > div.PQo_0.RqtMr > div.e1e1d > h2 > a
-content: body > div._2dDPU.vCf6V > div.zZYga > div > article > div.eo2As > div.EtaWk > ul > div > li > div > div > div.C4VMK > span
-hashtags: body > div._2dDPU.vCf6V > div.zZYga > div > article > div.eo2As > div.EtaWk > ul > div > li > div > div > div.C4VMK > span > a
-location: #react-root > section > main > div > div > article > header > div.o-MQd > div.M30cS > div.JF9hh > a
-'''
