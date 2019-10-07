@@ -197,9 +197,6 @@ def write_in_csv(items, filename='results.csv',
 
         csv_file.writerows(items)
 
-
-DB_COLUMN = 'review_body'
-DB_COLUMN1 = 'review_date'
 start_urls = [
     'https://www.tripadvisor.com/Attraction_Review-g294197-d324888-Reviews-Gyeongbokgung_Palace-Seoul.html',
 ]
