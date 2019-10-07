@@ -5,21 +5,21 @@ from bs4 import BeautifulSoup
 import pandas as pd
 import re
 import time
+import os
 
-#insert your instagram ID, password, and chrome driver's path
+#insert your instagram ID, password
 ID = ''
-PASSWORD = ''
-CHROME_DRV_PATH = '/Users/yerinkwon/yonsei-tour/instagram_crawler/chromedriver'
+PASSWORD = '!'
 
 TAG = '경복궁'
-SCROLL_NUMBER = 40
+SCROLL_NUMBER = 10
 POST_LINK = '#react-root > section > main > article > div:nth-child(3) > div > div > div > a'
 USER_NAME = '#react-root > section > main > div > div > article > header > div.o-MQd.z8cbW > div.PQo_0.RqtMr > div.e1e1d > h2 > a'
 CONTENT = '#react-root > section > main > div > div > article > div.eo2As > div.EtaWk > ul > div > li > div > div > div.C4VMK > span'
 LOCATION = '#react-root > section > main > div > div > article > header > div.o-MQd.z8cbW > div.M30cS > div.JF9hh > a'
 
 #insert chromedriver's path in your directory
-d = webdriver.Chrome(CHROME_DRV_PATH)
+d = webdriver.Chrome(os.path.abspath("chromedriver"))
 
 d.get('https://www.instagram.com/explore/tags/'+TAG+'/')
 d.implicitly_wait(3)
@@ -34,7 +34,6 @@ d.implicitly_wait(3)
 #get links of post with TAG
 scr = SCROLL_NUMBER
 links = []
-d.implicitly_wait(1)
 while scr:
 	if scr % 4 == 0:
 		html = d.page_source
@@ -47,6 +46,7 @@ while scr:
 #output: <TAG>.csv file
 #format: username | content | location
 i=0
+d.implicitly_wait(1)
 tb = pd.DataFrame(columns=['username','content','location'])
 for link in links:
 	username = ''
