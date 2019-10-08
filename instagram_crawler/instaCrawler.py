@@ -9,7 +9,7 @@ import os
 
 #insert your instagram ID, password
 ID = ''
-PASSWORD = '!'
+PASSWORD = ''
 
 TAG = '경복궁'
 SCROLL_NUMBER = 10
