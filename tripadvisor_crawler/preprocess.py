@@ -4,8 +4,7 @@ from gensim.utils import simple_preprocess
 from gensim.parsing.preprocessing import STOPWORDS
 from nltk.stem import WordNetLemmatizer, SnowballStemmer
 from nltk.stem.porter import *
-import numpy as np
-np.random.seed(2018)
+import pickle
 import nltk
 nltk.download('wordnet')
 stemmer = PorterStemmer()
@@ -29,4 +28,11 @@ dictionary.filter_extremes(no_below=15, no_above=0.5, keep_n=100000)
 
 bow_corpus = [dictionary.doc2bow(doc) for doc in pre_review]
 
-print(bow_corpus[0])
+with open('pre_Gyeongbokgung_Palace-Seoul.txt', 'wb') as f:
+    pickle.dump([dictionary, bow_corpus], f)
+
+'''
+Load는 다음과 같이 하면 됩니다.
+with open('pre_Gyeongbokgung_Palace-Seoul.txt', 'rb') as f:
+    dictionary, bow_corpus = pickle.load(f)
+'''

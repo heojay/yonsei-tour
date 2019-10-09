@@ -58,7 +58,7 @@ def parse(session, url):
         print('[parse] no soup:', url)
         return
 
-    num_reviews = soup.find('span', class_='reviews_header_count').text # get text
+    num_reviews = soup.find('span', class_='count').text # get text
     num_reviews = num_reviews[1:-1] 
     num_reviews = num_reviews.replace(',', '')
     num_reviews = int(num_reviews) # convert text into integer
@@ -71,7 +71,7 @@ def parse(session, url):
 
     offset = 0
 
-    while(True):
+    while(offset <= num_reviews):
         subpage_url = url_template.format(offset)
 
         subpage_items = parse_reviews(session, subpage_url)
@@ -81,7 +81,7 @@ def parse(session, url):
 
         items += subpage_items
 
-        if len(subpage_items) < 5:
+        if len(subpage_items) < 10:
             break
 
         offset += 10
