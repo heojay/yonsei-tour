@@ -198,7 +198,13 @@ def write_in_csv(items, filename='results.csv',
         csv_file.writerows(items)
 
 start_urls = [
-    'https://www.tripadvisor.com/Attraction_Review-g294197-d324888-Reviews-Gyeongbokgung_Palace-Seoul.html',
+    'https://www.tripadvisor.com/Attraction_Review-g294197-d554537-Reviews-The_War_Memorial_of_Korea-Seoul.html',
+    'https://www.tripadvisor.com/Attraction_Review-g294197-d320359-Reviews-Changdeokgung_Palace-Seoul.html',
+    'https://www.tripadvisor.com/Attraction_Review-g294197-d553546-Reviews-Myeongdong_Shopping_Street-Seoul.html',
+    'https://www.tripadvisor.com/Attraction_Review-g294197-d1379963-Reviews-Bukchon_Hanok_Village-Seoul.html',
+    'https://www.tripadvisor.com/Attraction_Review-g294197-d1552278-Reviews-Kwangjang_Market-Seoul.html',
+    'https://www.tripadvisor.com/Attraction_Review-g294197-d592506-Reviews-Insadong-Seoul.html'
+
 ]
 
 headers = ['review_title','review_body']

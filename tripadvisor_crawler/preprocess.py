@@ -19,17 +19,27 @@ def preprocess(text):
             result.append(lemmatize_stemming(token))
     return result
 
+starts_doc = [
+    'Bukchon_Hanok_Village-Seoul',
+    'Changdeokgung_Palace-Seoul',
+    'Gyeongbokgung_Palace-Seoul',
+    'Insadong-Seoul',
+    'Kwangjang_Market-Seoul',
+    'Myeongdong_Shopping_Street-Seoul',
+    'The_War_Memorial_of_Korea-Seoul'
+]
 
-df = pd.read_csv('Gyeongbokgung_Palace-Seoul.csv')
-pre_review = df['review_body'].map(preprocess)
+for doc in starts_doc:
+    df = pd.read_csv(doc+'.csv')
+    pre_review = df['review_body'].map(preprocess)
 
-dictionary = gensim.corpora.Dictionary(pre_review)
-dictionary.filter_extremes(no_below=15, no_above=0.5, keep_n=100000)
+    dictionary = gensim.corpora.Dictionary(pre_review)
+    dictionary.filter_extremes(no_below=15, no_above=0.5, keep_n=100000)
 
-bow_corpus = [dictionary.doc2bow(doc) for doc in pre_review]
+    bow_corpus = [dictionary.doc2bow(doc) for doc in pre_review]
 
-with open('pre_Gyeongbokgung_Palace-Seoul.txt', 'wb') as f:
-    pickle.dump([dictionary, bow_corpus], f)
+    with open('pre_'+doc+'.txt', 'wb') as f:
+        pickle.dump([dictionary, bow_corpus], f)
 
 '''
 Load는 다음과 같이 하면 됩니다.
