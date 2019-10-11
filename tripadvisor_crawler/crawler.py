@@ -5,6 +5,7 @@ from bs4 import BeautifulSoup
 import csv
 import webbrowser
 import io
+import pandas as pd
 
 def display(content, filename='output.html'):
     with open(filename, 'wb') as f:
@@ -197,21 +198,24 @@ def write_in_csv(items, filename='results.csv',
 
         csv_file.writerows(items)
 
-start_urls = [
-    'https://www.tripadvisor.com/Attraction_Review-g294197-d554537-Reviews-The_War_Memorial_of_Korea-Seoul.html',
-    'https://www.tripadvisor.com/Attraction_Review-g294197-d320359-Reviews-Changdeokgung_Palace-Seoul.html',
-    'https://www.tripadvisor.com/Attraction_Review-g294197-d553546-Reviews-Myeongdong_Shopping_Street-Seoul.html',
-    'https://www.tripadvisor.com/Attraction_Review-g294197-d1379963-Reviews-Bukchon_Hanok_Village-Seoul.html',
-    'https://www.tripadvisor.com/Attraction_Review-g294197-d1552278-Reviews-Kwangjang_Market-Seoul.html',
-    'https://www.tripadvisor.com/Attraction_Review-g294197-d592506-Reviews-Insadong-Seoul.html'
 
-]
+start_urls = pd.read_csv('/Users/jaewonheo/Documents/yonsei-tour/tripadvisor_crawler/Seoul_URL.csv')['url'].tolist()
 
 headers = ['review_title','review_body']
-
 lang = 'en'
 
 for url in start_urls:
+
+    url = 'https://www.tripadvisor.com'+url
+    
+    filename = url.split('Reviews-')[1][:-5]
+
+    try:
+        df = pd.read_csv('/Users/jaewonheo/Documents/yonsei-tour/tripadvisor_crawler/review/'+filename+'.csv')
+        print(filename + 'is already exist.')
+        continue
+    except:
+        pass
 
     # get all reviews for 'url'
     items = scrape(url, lang)
@@ -220,6 +224,5 @@ for url in start_urls:
         print('No reviews')
     else:
         # write in CSV
-        filename = url.split('Reviews-')[1][:-5]
         print('filename:', filename)
-        write_in_csv(items, filename + '.csv', headers, mode='w')
+        write_in_csv(items, '/Users/jaewonheo/Documents/yonsei-tour/tripadvisor_crawler/review/'+filename + '.csv', headers, mode='w')
