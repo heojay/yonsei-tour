@@ -200,6 +200,7 @@ def write_in_csv(items, filename='results.csv',
 
 
 start_urls = pd.read_csv('/Users/jaewonheo/Documents/yonsei-tour/tripadvisor_crawler/Seoul_URL.csv')['url'].tolist()
+start_urls = start_urls[880:]
 
 headers = ['review_title','review_body']
 lang = 'en'
@@ -218,7 +219,10 @@ for url in start_urls:
         pass
 
     # get all reviews for 'url'
-    items = scrape(url, lang)
+    try:
+        items = scrape(url, lang)
+    except:
+        items = {}
 
     if not items:
         print('No reviews')
