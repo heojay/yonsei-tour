@@ -2,7 +2,17 @@
 title: "사용자 맞춤형 한국 관광지 추천 시스템"
 author: "Yonsei Tour"
 date: "2019/10/25"
-output: html_document
+output:
+  html_document:
+    theme: journal 
+    toc: yes
+    toc_float: true
+    highlight: tango
+    code_folding: show
+    number_section: true
+    self_contained: true
+editor_options: 
+  chunk_output_type: console
 ---
 &nbsp;
 &nbsp;
@@ -22,7 +32,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # 주제 선정 이유
 
-#### 1. 관광은 고부가가치 산업
+## 관광은 고부가가치 산업
 
 [[관광산업①] 한국 관광은 ‘왜’ 이렇게 일본에 뒤처졌을까](https://www.sisajournal.com/news/articleView.html?idxno=177744)
 
@@ -35,7 +45,7 @@ knitr::opts_chunk$set(echo = TRUE)
 &nbsp;
 
   
-#### 2. 현 관광산업의 문제점
+## 현 관광산업의 문제점
 
 - 몰개성한 관광지 제안
   - 여행의 트렌드에 따른 코스
@@ -48,11 +58,11 @@ knitr::opts_chunk$set(echo = TRUE)
 &nbsp;
 
   
-#### 3. 이제는 취향과 개성의 시대 - 맞춤형 관광지 추천
+## 이제는 취향과 개성의 시대 - 맞춤형 관광지 추천
 
 
 
-![reason_2](./mid_report_fig/reason_2.jpg)
+![](./mid_report_fig/reason_2.jpg)
 
 [[트렌드 인사이트]여행액티비티 시장 황금의 땅일까 1](http://www.ttlnews.com/article/travel_report/4166)
 
@@ -69,7 +79,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # 개발 일정 및 팀원 역할
 
-![timeline](./mid_report_fig/timeline.png)
+![](./mid_report_fig/timeline.png)
 
 &nbsp;
 &nbsp;
@@ -80,7 +90,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # 수집 데이터
 
-### 1. Tripadvisor 리뷰 데이터
+## Tripadvisor 리뷰 데이터
 
 ![](./mid_report_fig/trip_crawl.png)
 
@@ -90,9 +100,9 @@ knitr::opts_chunk$set(echo = TRUE)
 - 총 471개 관광지
 
 ```{r trip}
-Gyeongbokgung <- read.csv("./tripadvisor_crawler/review/Gyeongbokgung_Palace-Seoul.csv")
+trip_Gyeongbokgung <- read.csv("./tripadvisor_crawler/review/Gyeongbokgung_Palace-Seoul.csv")
 library(knitr)
-kable(Gyeongbokgung[1:5, ])
+kable(trip_Gyeongbokgung[1:5, ])
 ```
 
 
@@ -103,7 +113,7 @@ kable(Gyeongbokgung[1:5, ])
 
 
 
-### 2. Instagram 피드 데이터
+## Instagram 피드 데이터
 
 ![](./mid_report_fig/inst_crwawl.png)
 
@@ -112,8 +122,8 @@ kable(Gyeongbokgung[1:5, ])
 - 어떤 부분에서 관광객들이 매력을 느꼈는지 해시태그를 통해 확인할 수 있음
 
 ```{r insta}
-Gyeongbokgung <- read.csv("./instagram_crawler/sample_경복궁.csv")
-kable(Gyeongbokgung[1:5, ])
+insta_Gyeongbokgung <- read.csv("./instagram_crawler/sample_경복궁.csv")
+kable(insta_Gyeongbokgung[1:5, ])
 ```
   
 &nbsp;
@@ -122,7 +132,7 @@ kable(Gyeongbokgung[1:5, ])
 
 
 
-### 3. 외래관광객 실태조사
+## 외래관광객 실태조사
 
 - 한국관광공사가 우리나라를 방문한 외래관광객의 한국 여행실태, 한국내 소비실태 및 한국 여행 평가를 조사한 자료 
 
@@ -130,6 +140,21 @@ kable(Gyeongbokgung[1:5, ])
 
 
 [인포그래픽](https://kto.visitkorea.or.kr/file/download/bd/522dfda4-6d8e-11e9-b01e-c515ccf49883.pdf.kto)
+
+
+&nbsp;
+&nbsp;
+&nbsp;
+
+## 주요관광지점 입장객
+
+- 주요관광지점 입장객통계의 통계 내용은 개별 관광지에 대한 방문객 집계자료
+- 리뷰에서 부족한 관광객의 실제 수요를 파악할 수 있음
+```{r entry}
+entry <- read.csv("./주요관광지점 입장객_191024103044.csv")
+entry[1:5, 1:7]
+```
+
 
 &nbsp;
 &nbsp;
@@ -150,7 +175,7 @@ kable(Gyeongbokgung[1:5, ])
 
 ![](./mid_report_fig/prototype.png)
 
-### 협업 필터링
+## 협업 필터링
 
 - 사용자들로부터 얻은 상품에 대한 선호도를 이용하여 관심사를 예측하는 기법
 
@@ -162,7 +187,7 @@ kable(Gyeongbokgung[1:5, ])
 
 ![](./mid_report_fig/CF_0.png)
 
-#### 사용자 기반 필터링
+### 사용자 기반 필터링
 
 - 선호 이력이 유사한 다른 사용자의 선호 아이템을 탐색
 - 아직 구매하지 않은 아이템을 추천
@@ -176,7 +201,7 @@ kable(Gyeongbokgung[1:5, ])
 
 
 
-#### 아이템 기반 필터링
+### 아이템 기반 필터링
 
 - 사용자 선호 아이템을 탐색
 - 해당 아이템과 유사한 아이템을 추천 (사과와 햄버거)
@@ -185,7 +210,7 @@ kable(Gyeongbokgung[1:5, ])
 &nbsp;
 &nbsp;
   
-#### 한계
+### 한계
 
 - 실제 사용자의 데이터가 있어야 한다는 점이 단점
 - 단순 아이템 기반 모델링의 한계를 보완하고자 도입, 차순위에 두고 진행할 예정
