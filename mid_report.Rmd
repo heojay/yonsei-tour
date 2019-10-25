@@ -100,7 +100,7 @@ knitr::opts_chunk$set(echo = TRUE)
 - BeautifulSoup를 이용해 서울의 관광지 리스트를 먼저 크롤링한 후, 그 리뷰들을 모음.
 - 총 471개 관광지
 
-```{r trip}
+```{r trip, warning=FALSE}
 trip_Gyeongbokgung <- read.csv("./tripadvisor_crawler/review/Gyeongbokgung_Palace-Seoul.csv")
 library(knitr)
 kable(trip_Gyeongbokgung[1:5, ])
@@ -149,8 +149,9 @@ kable(pre_Gyeongbokgung[1:5, ])
 
 - 어떤 부분에서 관광객들이 매력을 느꼈는지 해시태그를 통해 확인할 수 있음
 
-```{r insta}
-insta_Gyeongbokgung <- read.csv("./instagram_crawler/sample_경복궁.csv")
+```{r insta, warning=FALSE}
+library(data.table)
+insta_Gyeongbokgung <- fread("./instagram_crawler/sample_GBG.csv", encoding = 'UTF-8')
 kable(insta_Gyeongbokgung[1:5, ])
 ```
   
@@ -177,8 +178,51 @@ kable(insta_Gyeongbokgung[1:5, ])
 # EDA
 
 ```{r, warning=FALSE, message=FALSE}
-library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(tidyr)
 ```
+
+## 한국 여행에서 가장 필요한 정보 
+
+```{r, echo=FALSE}
+df_info <- read.csv('data/여행중필요정보.csv',  fileEncoding = 'euc-kr')
+```
+
+```{r, echo=FALSE}
+#중복투표 해결
+M = ncol(df_info)
+df_info = df_info %>% 
+    mutate(rowsum=rowSums(.)) %>%
+    mutate_at(1:M, ~./rowsum) %>%
+    select(-rowsum)
+```
+
+```{r, echo=FALSE}
+df_info %>% 
+    gather(info, proportion, colnames(df_info)) %>%
+    ggplot(aes(y=proportion, fill=factor(info))) +
+    geom_bar(aes(x=1), width=1, stat='identity')+ 
+    scale_fill_brewer(palette = "Set1") +
+    # theme(legend.position = "none")+
+    scale_x_discrete(NULL, expand = c(0, 0)) +
+    scale_y_continuous(NULL, expand = c(0, 0)) +
+    coord_polar(theta='y') +
+    labs(title='한국 여행 준비 중 가장 필요했던 정보', fill='필요 정보') +
+    theme_bw() + 
+    theme(axis.title.x = element_blank(),
+          axis.text = element_blank(),
+          axis.ticks = element_blank(),
+          plot.title = element_text(face = "bold", size = 15, hjust=0.5),
+          legend.background = element_rect(fill = "white", size = 4, colour = "white"), 
+          #legend.justification = c(0, 1), 
+          #legend.position = c(0.75, 0.55),
+          panel.grid  = element_blank())
+```
+
+우리가 **관광지를 추천**하고자 하는 것이 실제로 외국인 관광객들이 교통편 다음으로 **가장 필요로 하는 정보**이다.
+
+관광객들이 정보로 필요로하는 맛집정보나 쇼핑장소도 관광지라는 범주에 포함시킨다면 가치있는 아이템이 될 수 있다고 본다.
 
 
 ## 국가별 방문자 수
@@ -213,7 +257,7 @@ df_country %>%
 
 [한국관광공사 :  외래 관광객 실태 조사](https://kto.visitkorea.or.kr/kor/notice/data/statis/tstatus/forstatus/board/view.kto?id=431236&isNotice=false&instanceId=295&rnum=4)
 
-우리나라에 방문하는 외국인은 주로 아시아인이 많고 그 중에서도 중구과 일본이 압도적으로 많다.
+우리나라에 방문하는 외국인은 주로 아시아인이 많고 그 중에서도 중국과 일본이 압도적으로 많다.
 
 ```{r, echo=FALSE}
 df_revisit <- read.csv('data/재방문비율.csv',  fileEncoding = 'euc-kr')
@@ -250,62 +294,7 @@ df_country %>%
 
 재방문 비율을 고객의 충성도라고 비유를 하자면 중국과 일본 홍콩은 우리나라 관광에 대한 충성도가 높은 편이고 그 외의 국가들은 현저하게 떨어진다.
 
-```{r, echo=FALSE}
-df_purpose <- read.csv('data/주요방한목적.csv',  fileEncoding = 'euc-kr')
-df_purpose$country <- as.character(df_purpose$country)
-```
-
-```{r, echo=FALSE}
-df_purpose %>% 
-    filter(country=='중국'| country=='일본' | country=='홍콩' | country=='미국' | country=='러시아') %>%
-    gather(purpose, proportion, colnames(df_purpose)[2:5]) %>%
-    ggplot(aes(y=proportion, fill=factor(purpose))) +
-    facet_wrap(~country) +
-    geom_bar(aes(x=1), width=1, stat='identity')+ 
-    # theme(legend.position = "none")+
-    scale_x_discrete(NULL, expand = c(0, 0)) +
-    scale_y_continuous(NULL, expand = c(0, 0)) +
-    coord_polar(theta='y') +
-    scale_fill_brewer(palette = "Set1") +
-    labs(title='주요 방한 목적', fill='방문목적') + 
-    theme_bw() + 
-    theme(axis.title.x = element_blank(),
-          axis.text = element_blank(),
-          axis.ticks = element_blank(),
-          plot.title = element_text(face = "bold", size = 15, hjust=0.5),
-          legend.background = element_rect(fill = "white", size = 4, colour = "white"), 
-          legend.justification = c(0, 1), 
-          legend.position = c(0.75, 0.45),
-          panel.grid  = element_blank())
-```
-
-미국의 경우 비즈니스 목적으로 한국에 방문하는 경우가 많다.
-
-```{r, echo=FALSE}
-df_purpose %>% 
-    filter(country!='중국'& country!='일본' & country!='홍콩' & country!='미국' & country!='러시아') %>%
-    gather(purpose, proportion, colnames(df_purpose)[2:5]) %>%
-    ggplot(aes(y=proportion, fill=factor(purpose))) +
-    facet_wrap(~country) +
-    geom_bar(aes(x=1), width=1, stat='identity')+ 
-    # theme(legend.position = "none")+
-    scale_x_discrete(NULL, expand = c(0, 0)) +
-    scale_y_continuous(NULL, expand = c(0, 0)) +
-    coord_polar(theta='y') +
-    scale_fill_brewer(palette = "Set1") +
-    labs(title='주요 방한 목적', fill='방문목적') +
-    theme_bw() + 
-    theme(axis.title.x = element_blank(),
-          axis.text = element_blank(),
-          axis.ticks = element_blank(),
-          plot.title = element_text(face = "bold", size = 15, hjust=0.5),
-          legend.background = element_rect(fill = "white", size = 4, colour = "white"), 
-          legend.justification = c(0, 1), 
-          legend.position = c(0.75, 0.45),
-          panel.grid  = element_blank())
-```
-
-하지만, 대부분의 국가들에서 여행을 목적으로 한국에 방문한다. 그러므로 한국에 온 방문자들을 여행자(고객)으로 취급하도록 하겠다.
+설문조사 결과 중국과 일본이 한국 여행 만족도 점수가 낮은 편에 속했기 때문에 충성도는 거리에 가장 영향을 받는다고 볼 수 있다.
 
 ## 한국 방문을 선택하게 된 요인들
 
@@ -350,9 +339,9 @@ df_factor %>%
   
 ```
 
-**초록색(역사.유적지)**을 집중해서 보면 미국, 러시아는 이색적인 역사 유적을 남다르게 좋아한다.
+**초록색(역사.유적지)**을 집중해서 보면  미국, 러시아 고객은 한국의 역사 유적에 대한 관심이 많다.
 
-**빨강색(쇼핑)**을 집중해서 보면 일본, 홍콩, 중국은 쇼핑을 하러 오는 경우가 많다.
+**빨강색(쇼핑)**을 집중해서 보면 일본, 홍콩, 중국 고객은 쇼핑을 하러 오는 경우가 많다.
 
 ```{r, echo=FALSE}
 df_factor %>% 
@@ -378,7 +367,7 @@ df_factor %>%
           panel.grid  = element_blank())
 ```
 
-**노란색(케이팝)**과 **보라색(자연풍경)**을 이전의 그림과 비교해서 보면 자연 풍경과 케이팝에 관심이 많다.
+**노란색(케이팝)**과 **보라색(자연풍경)**을 이전의 그림과 비교해서 보면 동남아 고객들은 한국의 자연 풍경과 케이팝에 관심이 많다.
 
 ```{r, echo=FALSE}
 df_factor_demo <- read.csv('data/방문고려요인_인구통계.csv',  fileEncoding = 'euc-kr')
@@ -416,9 +405,9 @@ df_factor_demo %>%
           panel.grid.minor = element_blank())  
 ```
 
-한국에 방문하게 된 고려 요인에서 남성고객과 여성고객의 비율적으로 큰 차이가 나는 것은 유흥과 케이팝같다.
+한국에 방문하게 된 고려 요인에서 남성고객과 여성고객의 비율적으로 큰 차이가 나는 것은 유흥과 케이팝이다.
 
-남성고객의 경우 한국의 술문화나 밤거리에 좀 더 관심이 있고 여성고객의 경우 케이팝에 관심이 있다.
+남성고객의 경우 한국의 술문화나 밤거리에 좀 더 관심이 있고 여성고객의 경우 케이팝과 같은 한국 트렌드에 관심이 있다.
 
 이런 디테일을 명소 추천에 반영하게 되면 좋을 것 같다.
 
@@ -444,47 +433,6 @@ df_factor_demo %>%
 
 젊은 고객들은 역사 유적지는 고려하지 않고 케이팝, 패션 트렌드를 고려하고 한국에 방문하는 경향이 있다.
 
-
-## 한국 여행에서 가장 필요한 정보 
-
-```{r, echo=FALSE}
-df_info <- read.csv('data/여행중필요정보.csv',  fileEncoding = 'euc-kr')
-```
-
-```{r, echo=FALSE}
-#중복투표 해결
-M = ncol(df_info)
-df_info = df_info %>% 
-    mutate(rowsum=rowSums(.)) %>%
-    mutate_at(1:N, ~./rowsum) %>%
-    select(-rowsum)
-```
-
-```{r, echo=FALSE}
-df_info %>% 
-    gather(info, proportion, colnames(df_info)) %>%
-    ggplot(aes(y=proportion, fill=factor(info))) +
-    geom_bar(aes(x=1), width=1, stat='identity')+ 
-    scale_fill_brewer(palette = "Set1") +
-    # theme(legend.position = "none")+
-    scale_x_discrete(NULL, expand = c(0, 0)) +
-    scale_y_continuous(NULL, expand = c(0, 0)) +
-    coord_polar(theta='y') +
-    labs(title='한국 여행 준비 중 가장 필요했던 정보', fill='필요 정보') +
-    theme_bw() + 
-    theme(axis.title.x = element_blank(),
-          axis.text = element_blank(),
-          axis.ticks = element_blank(),
-          plot.title = element_text(face = "bold", size = 15, hjust=0.5),
-          legend.background = element_rect(fill = "white", size = 4, colour = "white"), 
-          #legend.justification = c(0, 1), 
-          #legend.position = c(0.75, 0.55),
-          panel.grid  = element_blank())
-```
-
-우리가 **관광지를 추천**하고자 하는 것이 실제로 외국인 관광객들이 교통편 다음으로 **가장 필요로 하는 정보**이다.
-
-관광객들이 정보로 필요로하는 맛집정보나 쇼핑장소도 관광지라는 범주에 포함시킨다면 가치있는 아이템이 될 수 있다고 본다.
 
 ## 한국 방문 후에 만족했던 활동들
 
@@ -527,9 +475,9 @@ df_satisfied %>%
           panel.grid  = element_blank())
 ```
 
-미국, 러시아인의 음식 기호는 맞추지 못하는 것 같다. 그리고 그들은 이색적인 역사 유적과 박물관을 남 다르게 좋아한다.
+**주황색(식도락)**을 보면 미국 러시아 고객의 음식 기호는 맞추지 못하는 것 같다. 반면에,  **노란색(역사유적지)**을 보면 한국의 역사 유적에 대한 관심이 많았을 뿐만 아니라 실제로도 만족하였다.
 
-전통문화체험을 만족한 경우는 방문객 수 대비 드문 것 같다.
+이 그룹의 고객들은 전통문화체험을 만족한 경우는 전체적으로 드문 것 같다.
 
 ```{r, echo=FALSE}
 df_satisfied %>% 
@@ -555,9 +503,10 @@ df_satisfied %>%
           panel.grid  = element_blank())
 ```
 
-전통문화체험에 대해서 만족도가 이전 국가들에 비해서 높은 것이 눈에 띈다.
+**분홍색(전통문화체험)**을 보면 동남아 고객들은 이전 국가들에 비해서 전통문화체험을 만족한 경향이 있다.
 
-그 외에도 자연경관에 대해서 만족도도 높고 놀이공원에 대한 만족도도 높다.
+그 외에도 **빨강색(놀이공원)**에 대한 한국의 놀이공원에 대한 만족도도 높다.
+
 
 ```{r, echo=FALSE}
 df_satisfied_demo <- read.csv('data/가장만족한활동_인구통계.csv',  fileEncoding = 'euc-kr')
@@ -594,7 +543,7 @@ df_satisfied_demo %>%
           panel.grid.minor = element_blank())
 ```
 
-여성 고객들이 쇼핑에 좀 더 관심을 보이는 경향이 있다.
+여성 고객들이 쇼핑에 만족을 하였고 남성 고객들은 한국에서의 유흥에 만족한 경향이 있다.
 
 ```{r, echo=FALSE}
 df_satisfied_demo %>% 
@@ -641,6 +590,9 @@ df_satisfied_demo %>%
 
 ## LDA
 
+**목적**
+> LDA를 사용하는 이유는 텍스트 덩어리들의 집합인 관광지를 주제라는 심플렉스 즉, 숫자로 표현하기 위함이다.
+
 1. 각 여행지는 $K$개의 토픽 mixture로 이루어져 있고 토픽 별로 word 등장 확률이 정해져 있다.
 2. 리뷰 내의 단어들은 $K$개의 토픽 중 한 토픽에 의해서 generated됐다고 가정한다.  
 
@@ -660,21 +612,6 @@ LDA가 제안하기를...
 > $$
 
 마찬가지로, 주제 별 단어의 사후 분포 역시 위를 통해서 단어 심플렉스 $S^V$ 상의 원소로 볼 수 있게 된다.
-
-
-
-
-## 협업 필터링
-
-- 사용자들로부터 얻은 상품에 대한 선호도를 이용하여 관심사를 예측하는 기법
-
-- 아마존, 넷플릭스 등에서 사용되고 있음
-
-  
-
-
-
-![](./mid_report_fig/CF_0.png)
 
 ## MBTI 성격유형 검사
 
@@ -738,6 +675,20 @@ LDA가 제안하기를...
 - 소셜 미디어를 자주 사용한다.
 - 친구보다 가족과 더 많은 시간을 보낸다.
 - 가격이 비싸도 만족도가 높으면 상관없다. 
+
+## 협업 필터링
+
+- 사용자들로부터 얻은 상품에 대한 선호도를 이용하여 관심사를 예측하는 기법
+
+- 아마존, 넷플릭스 등에서 사용되고 있음
+
+  
+
+
+
+![](./mid_report_fig/CF_0.png)
+
+
 
 ### 사용자 기반 필터링
 
