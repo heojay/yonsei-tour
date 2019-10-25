@@ -101,3 +101,38 @@
 # 프로토타입 구조
 
 ![prototype](/Users/jaewonheo/Documents/yonsei-tour/mid_report_fig/prototype.png)
+
+### 협업 필터링
+
+- 사용자들로부터 얻은 상품에 대한 선호도를 이용하여 관심사를 예측하는 기법
+
+- 아마존, 넷플릭스 등에서 사용되고 있음
+
+  
+
+
+
+![CF_0](/Users/jaewonheo/Documents/yonsei-tour/mid_report_fig/CF_0.png)
+
+#### 사용자 기반 필터링
+
+- 선호 이력이 유사한 다른 사용자의 선호 아이템을 탐색
+- 아직 구매하지 않은 아이템을 추천
+- 사용자 3과 가장 유사한 사용자 1의 선호 아이템을 추천
+
+
+
+![CF_1](/Users/jaewonheo/Documents/yonsei-tour/mid_report_fig/CF_1.png)
+
+#### 아이템 기반 필터링
+
+- 사용자 선호 아이템을 탐색
+- 해당 아이템과 유사한 아이템을 추천 (사과와 햄버거)
+- 햄버거를 구매한 사용자에게 사과를 추천
+
+
+
+#### 한계
+
+- 실제 사용자의 데이터가 있어야 한다는 점이 단점
+- 단순 아이템 기반 모델링의 한계를 보완하고자 도입 차순위에 두고 진행할 예정
