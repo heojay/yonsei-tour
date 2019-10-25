@@ -107,6 +107,33 @@ kable(trip_Gyeongbokgung[1:5, ])
 ```
 
 
+- 분석의 효율을 높이기 위해 전처리를 진행
+
+```{}
+def clean_review(text: str) -> str:
+    # 1. unicode to ASCII
+    text = unicodeToAscii(text)
+            
+    # 2. Remove HTML
+    text = BeautifulSoup(text, "lxml").get_text()
+    
+    # 3. Remove Punctuations & lowercase
+    text = "".join(v for v in text if v not in string.punctuation).lower().split()
+    
+    # 4. Remove Stop Word
+    text = [word for word in text if word not in stop]
+    
+    # 5. lemmatization
+    text = [lmtzr.lemmatize(word) for word in text]
+    
+    return ' '.join(text)
+```
+
+```{r pre_trip}
+pre_Gyeongbokgung <- read.csv("./data/preprocess_gyeongbok.csv")
+kable(pre_Gyeongbokgung[1:5, ])
+```
+
 
 &nbsp;
 &nbsp;
