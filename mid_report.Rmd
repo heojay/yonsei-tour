@@ -3,7 +3,6 @@ title: "사용자 맞춤형 한국 관광지 추천 시스템"
 author: "Yonsei Tour"
 date: "2019/10/25"
 output:
-<<<<<<< HEAD
   html_document:
     theme: journal 
     toc: yes
@@ -12,20 +11,9 @@ output:
     code_folding: show
     number_section: true
     self_contained: true
-=======
-    html_document:
-        theme: journal
-        toc: yes
-        toc_float: true
-        highlight: tango
-        code_folding: show
-        number_section: true
-        self_contained: true
->>>>>>> 5743d77dca6fffdcf86c3a0af0b96f8c172e2660
 editor_options: 
   chunk_output_type: console
 ---
-
 &nbsp;
 &nbsp;
 &nbsp;
@@ -63,6 +51,7 @@ knitr::opts_chunk$set(echo = TRUE)
   - 여행의 트렌드에 따른 코스
   - 여행사 일정에 따른 코스
   - 개인의 특성, 여행 목적과 무관한 코스
+- 리뷰와 광고를 구분하기 어려움
 - 여행 만족도 하락으로 이어짐  
 
 &nbsp;
@@ -134,13 +123,8 @@ kable(trip_Gyeongbokgung[1:5, ])
 - 어떤 부분에서 관광객들이 매력을 느꼈는지 해시태그를 통해 확인할 수 있음
 
 ```{r insta}
-<<<<<<< HEAD
 insta_Gyeongbokgung <- read.csv("./instagram_crawler/sample_경복궁.csv")
 kable(insta_Gyeongbokgung[1:5, ])
-=======
-#Gyeongbokgung <- read.csv("./instagram_crawler/sample_경복궁.csv")
-#kable(Gyeongbokgung[1:5, ])
->>>>>>> 5743d77dca6fffdcf86c3a0af0b96f8c172e2660
 ```
   
 &nbsp;
@@ -156,21 +140,7 @@ kable(insta_Gyeongbokgung[1:5, ])
 - 외래관광객의 한국 여행성향을 파악할 수 있음 
 
 
-[인포그래픽](https://kto.visitkorea.or.kr/file/download/bd/522dfda4-6d8e-11e9-b01e-c515ccf49883.pdf.kto)
-
-
-&nbsp;
-&nbsp;
-&nbsp;
-
-## 주요관광지점 입장객
-
-- 주요관광지점 입장객통계의 통계 내용은 개별 관광지에 대한 방문객 집계자료
-- 리뷰에서 부족한 관광객의 실제 수요를 파악할 수 있음
-```{r entry}
-entry <- read.csv("./주요관광지점 입장객_191024103044.csv")
-entry[1:5, 1:7]
-```
+[인포그래픽](https://kto.visitkorea.or.kr/file/download/bd/528174d7-6d8e-11e9-b01e-c515ccf49883.pdf.kto)
 
 
 &nbsp;
@@ -187,7 +157,7 @@ library(tidyverse)
 ## 국가별 방문자 수
 
 ```{r, echo=FALSE}
-df_country <- read.csv('data/출입국가별통계.csv')
+df_country <- read.csv('./data/출입국가별통계.csv', fileEncoding = 'euc-kr')
 df_country$country <- as.character(df_country$country)
 ```
 [한국관광공사 : 한국 관광 통계](https://kto.visitkorea.or.kr/kor/notice/data/statis/profit/board/view.kto?id=423699&isNotice=true&instanceId=294&rnum=0)
@@ -219,7 +189,7 @@ df_country %>%
 우리나라에 방문하는 외국인은 주로 아시아인이 많고 그 중에서도 중구과 일본이 압도적으로 많다.
 
 ```{r, echo=FALSE}
-df_revisit <- read.csv('data/재방문비율.csv')
+df_revisit <- read.csv('data/재방문비율.csv',  fileEncoding = 'euc-kr')
 df_revisit$country <- as.character(df_revisit$country)
 ```
 
@@ -254,7 +224,7 @@ df_country %>%
 재방문 비율을 고객의 충성도라고 비유를 하자면 중국과 일본 홍콩은 우리나라 관광에 대한 충성도가 높은 편이고 그 외의 국가들은 현저하게 떨어진다.
 
 ```{r, echo=FALSE}
-df_purpose <- read.csv('data/주요방한목적.csv')
+df_purpose <- read.csv('data/주요방한목적.csv',  fileEncoding = 'euc-kr')
 df_purpose$country <- as.character(df_purpose$country)
 ```
 
@@ -313,7 +283,7 @@ df_purpose %>%
 ## 한국 방문을 선택하게 된 요인들
 
 ```{r, echo=FALSE}
-df_factor <- read.csv('data/방문고려요인.csv')
+df_factor <- read.csv('data/방문고려요인.csv',  fileEncoding = 'euc-kr')
 df_factor$country <- as.character(df_factor$country)
 ```
 
@@ -384,7 +354,7 @@ df_factor %>%
 **노란색(케이팝)**과 **보라색(자연풍경)**을 이전의 그림과 비교해서 보면 자연 풍경과 케이팝에 관심이 많다.
 
 ```{r, echo=FALSE}
-df_factor_demo <- read.csv('data/방문고려요인_인구통계.csv')
+df_factor_demo <- read.csv('data/방문고려요인_인구통계.csv',  fileEncoding = 'euc-kr')
 df_factor_demo$demographic <- as.character(df_factor_demo$demographic)
 ```
 
@@ -451,7 +421,7 @@ df_factor_demo %>%
 ## 한국 여행에서 가장 필요한 정보 
 
 ```{r, echo=FALSE}
-df_info <- read.csv('data/여행중필요정보.csv')
+df_info <- read.csv('data/여행중필요정보.csv',  fileEncoding = 'euc-kr')
 ```
 
 ```{r, echo=FALSE}
@@ -492,7 +462,7 @@ df_info %>%
 ## 한국 방문 후에 만족했던 활동들
 
 ```{r, echo=FALSE}
-df_satisfied <- read.csv('data/가장만족한활동.csv')
+df_satisfied <- read.csv('data/가장만족한활동.csv',  fileEncoding = 'euc-kr')
 ```
 
 ```{r, echo=FALSE}
@@ -563,7 +533,7 @@ df_satisfied %>%
 그 외에도 자연경관에 대해서 만족도도 높고 놀이공원에 대한 만족도도 높다.
 
 ```{r, echo=FALSE}
-df_satisfied_demo <- read.csv('data/가장만족한활동_인구통계.csv')
+df_satisfied_demo <- read.csv('data/가장만족한활동_인구통계.csv',  fileEncoding = 'euc-kr')
 ```
 
 ```{r, echo=FALSE}
@@ -630,8 +600,6 @@ df_satisfied_demo %>%
 
 ![](./mid_report_fig/prototype.png)
 
-<<<<<<< HEAD
-=======
 **개요**
 
 > 관광지 리뷰와 사용자들의 개인 별 설문 조사에 기반하여 관광지를 추천한다.
@@ -669,7 +637,6 @@ LDA가 제안하기를...
 
 
 
->>>>>>> 5743d77dca6fffdcf86c3a0af0b96f8c172e2660
 ## 협업 필터링
 
 - 사용자들로부터 얻은 상품에 대한 선호도를 이용하여 관심사를 예측하는 기법
@@ -682,11 +649,7 @@ LDA가 제안하기를...
 
 ![](./mid_report_fig/CF_0.png)
 
-<<<<<<< HEAD
 ### 사용자 기반 필터링
-=======
-## 사용자 기반 필터링
->>>>>>> 5743d77dca6fffdcf86c3a0af0b96f8c172e2660
 
 - 선호 이력이 유사한 다른 사용자의 선호 아이템을 탐색
 - 아직 구매하지 않은 아이템을 추천
@@ -700,11 +663,7 @@ LDA가 제안하기를...
 
 
 
-<<<<<<< HEAD
 ### 아이템 기반 필터링
-=======
-## 아이템 기반 필터링
->>>>>>> 5743d77dca6fffdcf86c3a0af0b96f8c172e2660
 
 - 사용자 선호 아이템을 탐색
 - 해당 아이템과 유사한 아이템을 추천 (사과와 햄버거)
@@ -713,11 +672,8 @@ LDA가 제안하기를...
 &nbsp;
 &nbsp;
   
-<<<<<<< HEAD
 ### 한계
-=======
-## 한계
->>>>>>> 5743d77dca6fffdcf86c3a0af0b96f8c172e2660
 
 - 실제 사용자의 데이터가 있어야 한다는 점이 단점
 - 단순 아이템 기반 모델링의 한계를 보완하고자 도입, 차순위에 두고 진행할 예정
+
