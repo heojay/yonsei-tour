@@ -24,7 +24,7 @@ fluidPage(
       h3("The Atrractions you Might Be Interested in"),     
       tableOutput("item_recom"),
       imageOutput("image", height = 300)
-    ),
+    )
   ),
   
   fluidRow(                                    

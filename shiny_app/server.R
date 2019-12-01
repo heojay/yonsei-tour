@@ -1,8 +1,16 @@
+#-data.table-
+#recc_table:
+#Columns: 
+# age(under 20, 30s, 40s, 50s, over 60), 
+# sex(Male, Female), 
+# nationality(China, Taiwan, Japan, U.S.A, Other), 
+# place number(1~40), 
+# place name
+
+recc_table <- readRDS("data/temp_data.rds")
 function(input, output) {
   
   output$item_recom <- renderTable({
-    
-    
     # react to submit button
     input$submit
     
@@ -11,16 +19,10 @@ function(input, output) {
       isolate(
         unique(c(input$input_age, input$input_sex, input$input_nat))
       )
-    
-    # Run model
-    if(user_detail != ""){
-      if(user_detail[2] == "Male"){
-        recomm <- c('MyneongDong', 'Everland')
-      } else {
-        recomm <- c('Sinchon', 'LotteWorld')
-      }
-    }
-    
+
+    recomm <- recc_table[age == user_detail[1] & 
+                             sex == user_detail[2] &
+                             nationality == user_detail[3],4] #need to convert place number to place name
   }
   )
   
@@ -36,27 +38,20 @@ function(input, output) {
       )
     
     if (user_detail != ""){
-      if (user_detail[2] == "Male") {
-        return(list(
-          src = "images/myeongdong.jpg",
-          contentType = "image/jpg",
-          height = 300,
-          alt = "Myeongdong"
-        ))
-      } else {
-        return(list(
-          src = "images/sinchon.jpeg",
-          filetype = "image/jpeg",
-          height = 300,
-          alt = "Sinchon"
-        ))
-      }
-    } else {
+      return(list(
+        src = paste("images/",recc_table[age == user_detail[1] & 
+                                 sex == user_detail[2] &
+                                 nationality == user_detail[3],4], ".jpg",sep=""),
+        contentType = "image/jpg",
+        height = 300,
+        alt = "Myeongdong"
+      ))
+    }else{
       return(list(
         src = "images/default.png",
-        filetype = "image/png",
+        contentType = "image/png",
         height = 300,
-        alt = "Sinchon"
+        alt = "Welcome"
       ))
     }
     
