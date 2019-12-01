@@ -22,7 +22,7 @@ function(input, output) {
 
     recomm <- recc_table[age == user_detail[1] & 
                              sex == user_detail[2] &
-                             nationality == user_detail[3],4] #need to convert place number to place name
+                             nationality == user_detail[3],5]
   }
   )
   
@@ -44,7 +44,9 @@ function(input, output) {
                                  nationality == user_detail[3],4], ".jpg",sep=""),
         contentType = "image/jpg",
         height = 300,
-        alt = "Myeongdong"
+        alt = recc_table[age == user_detail[1] & 
+                           sex == user_detail[2] &
+                           nationality == user_detail[3],5]
       ))
     }else{
       return(list(
