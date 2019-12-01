@@ -4,8 +4,9 @@
 # age(under 20, 30s, 40s, 50s, over 60), 
 # sex(Male, Female), 
 # nationality(China, Taiwan, Japan, U.S.A, Other), 
-# place number(1~40), 
-# place name
+# place_number(1~40), 
+# place_name
+library(data.table)
 
 recc_table <- readRDS("data/temp_data.rds")
 function(input, output) {
