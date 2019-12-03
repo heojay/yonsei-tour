@@ -1,0 +1,526 @@
+---
+title: "demographics_analysis"
+author: "Lee"
+date: '2019 11 15 '
+output: html_document
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r, warning=FALSE, message=FALSE}
+library(tidyverse)
+```
+
+# Preprocess
+
+```{r}
+df <- read.csv('preprocessed.csv')
+
+# top 40 관광지만 demographic analysis를 진행하고 나머지는 피팅되고 난 뒤에 모델에 얹을 예정
+temp <- df['만족방문지'] %>% 
+    group_by(만족방문지) %>%
+    summarize(freq=n()) %>%
+    top_n(40) %>%
+    arrange(desc(freq)) %>%
+    pull(만족방문지) %>%
+    as.character()
+
+
+df <- df[df$만족방문지 %in% temp,]
+df$만족방문지 <- as.factor(as.character(df$만족방문지))
+
+
+#여행이 매우 만족한 경우가 아니라면 제거하자. 음의 정보도 충분히 유의하나 일단 보류
+
+df <- df %>% filter(만족도=='매우만족')
+
+# 국적 기타 제거
+df <- df %>% filter(국적!='기타')
+```
+
+방문지 인덱스를 만들자.
+
+```{r}
+df['category'] <- as.numeric(factor(df$만족방문지, level=temp))
+df[df['category'] == 37, 'category'] <- 27
+```
+
+안 쓸 것 같은 변수들 제거
+```{r}
+df <- df %>% select(-X, -starts_with('참여'), -starts_with('방문'))
+```
+
+
+```{r}
+df <- df %>% mutate(목적 = paste0('(', 목적_1위, ', ', 목적_2위, ', ', 목적_3위, ')'))
+```
+
+## 살리는 목적
+
+**word frequency로 해석한 주제 (LDA.ipynb)**
+
+1번 (도시 - 조용한)
+
+2번 (도시 - 번화가의)
+
+3번 (역사 - 조용한)
+
+4번 (자연의 자연 - 조용한)
+
+인데 위에 근거하여 여행 목적 중에서 살릴 수 있는 목적과 살릴수 없는 목적이 나뉘어진다.
+
+1. 살리는 목적
+
+> "역사/문화 유적 탐방", "K-POP", "쇼핑", "유흥/놀이 시설",  "자연 풍경 감상", "치료 및 미용 서비스", "템플스테이 태권도 등 한국 전통 문화 체험", "패션, 유행 등 세련된 현대 문화"      
+
+2. 못 살리는 목적
+
+> "경제적인 여행비용", "기타", "기후/ 뚜렷한 사계절", "레저 및 스포츠 활동", "숙박/ 교통 등 관광 편리성 및 안전성", "자국과의 이동 거리", "친구, 친지 방문", "휴가 시간"
+
+```{r}
+df['목적_역사'] <- ifelse(grepl('역사' , df$목적), 1, 0)
+df['목적_KPOP'] <- ifelse(grepl('POP' , df$목적), 1, 0)
+df['목적_자연'] <- ifelse(grepl('자연' , df$목적), 1, 0)
+df['목적_미용'] <- ifelse(grepl('미용' , df$목적), 1, 0)
+df['목적_전통'] <- ifelse(grepl('전통' , df$목적), 1, 0)
+df['목적_패션'] <- ifelse(grepl('패션' , df$목적), 1, 0)
+df['목적_쇼핑'] <- ifelse(grepl('쇼핑' , df$목적), 1, 0)
+df['목적_유흥'] <- ifelse(grepl('유흥' , df$목적), 1, 0)
+
+# **살릴 수 있는 방문 목적**을 기입하지 않은 사람은 제거하자.
+temp <- df %>% select(starts_with('목적_'), -ends_with('위'))
+temp <- apply(temp,1,sum)!=0
+df <- df[temp, ]
+```
+
+전처리는 이것으로 끝났고 LDA results를 join 하자.
+
+```{r}
+lda_results <- read.csv('LDA_results.csv') %>% select(-X)
+df <- left_join(df, lda_results, by='category')
+```
+
+# Modeling - Intro
+
+```{r, warning=FALSE, message=FALSE}
+library(corrplot)
+test <- df %>% select('목적_역사','목적_KPOP','목적_자연','목적_미용','목적_전통','목적_패션',
+                      '목적_쇼핑','목적_유흥')
+test %>% cor %>% corrplot
+```
+
+다변수 회귀 계수 해석 안전하리라 예상
+
+```{r}
+model1 <- lm(data=test, df$topic1 ~ .)
+model2 <- lm(data=test, df$topic2 ~ .)
+model3 <- lm(data=test, df$topic3 ~ .)
+model4 <- lm(data=test, df$topic4 ~ .)
+```
+
+```{r}
+stepmodel1 <- MASS::stepAIC(model1, direction = "both",trace = FALSE)
+stepmodel2 <- MASS::stepAIC(model2, direction = "both",trace = FALSE)
+stepmodel3 <- MASS::stepAIC(model3, direction = "both",trace = FALSE)
+stepmodel4 <- MASS::stepAIC(model4, direction = "both",trace = FALSE)
+```
+
+```{r}
+summary(stepmodel1)
+```
+
+**1번 (도시 - 조용한)**
+
+> 양 : 자연, 유흥
+>
+> 음 : 쇼핑
+
+```{r}
+summary(stepmodel2)
+```
+
+**2번 (도시 - 번화가의)**
+
+> 양 : K-POP, 미용, 패션, 쇼핑
+>
+> 음 : 역사, 자연
+
+```{r}
+summary(stepmodel3)
+```
+
+**3번 (역사 - 조용한)**
+
+> 양 : 역사, 전통
+>
+> 음 : K-POP, 패션, 쇼핑, 유흥
+
+```{r}
+summary(stepmodel4)
+```
+
+**4번 (자연의 자연 - 조용한)**
+
+> 양 : 자연
+>
+> 음 : 역사, K-POP, 전통, 쇼핑, 유흥
+
+
+# Modeling - Midtro
+
+방문 목적은 당연히 고려를 해야하겠지만, 인구 통계정보를 고려하는 것이 맞을까에서 시작한다.
+
+```{r}
+demographic <- c('국적', '성별', '나이')
+test_demographic <- df %>% select(topic1, topic2, topic3, topic4, demographic, category)
+```
+
+```{r}
+pca <- prcomp(test_demographic %>% select(starts_with('topic')), scale. = FALSE) # topic 보존
+summary(pca)
+```
+
+pca 2개의 주성분 만으로 88%의 분산이 설명되므로 2개로 시각화를 진행하자.
+
+```{r}
+test_demographic$pc1 <- pca$x[,1]
+test_demographic$pc2 <- pca$x[,2]
+
+ggplot(test_demographic, aes(pc1, pc2)) +
+    geom_bin2d() +
+    facet_wrap(.~국적) +
+    theme_bw()
+```
+
+## Q : 국적은 여행 선호도에 영향이 있을까?
+
+방문 목적을 공변량으로 둔 다음에 ANCOVA를 진행해보자.
+
+```{r}
+test2 <- test
+test2['국적'] <- df$국적
+model1_2 <- update(model1, ~.+국적, data=test2)
+model2_2 <- update(model2, ~.+국적, data=test2)
+model3_2 <- update(model3, ~.+국적, data=test2)
+model4_2 <- update(model4, ~.+국적, data=test2)
+
+stepmodel1_2 <- MASS::stepAIC(model1_2, direction = "both",trace = FALSE)
+stepmodel2_2 <- MASS::stepAIC(model2_2, direction = "both",trace = FALSE)
+stepmodel3_2 <- MASS::stepAIC(model3_2, direction = "both",trace = FALSE)
+stepmodel4_2 <- MASS::stepAIC(model4_2, direction = "both",trace = FALSE)
+```
+
+```{r}
+summary(stepmodel1_2)
+```
+
+
+```{r}
+summary(stepmodel2_2)
+```
+
+```{r}
+summary(stepmodel3_2)
+```
+
+```{r}
+summary(stepmodel4_2)
+```
+
+AIC를 이용한 모델 셀렉션에서 선택된 것에 기반하여 국적 변수는 유의하다고 볼 수 있다.
+
+## Q : 성별은 여행 선호도에 영향이 있을까?
+
+방문목적, 국적을 공변량으로 둔 다음에 ANCOVA를 진행해보자.
+
+```{r}
+test3 <- test2
+test3['성별'] <- df$성별
+model1_3 <- update(model1_2, ~.+성별, data=test3)
+model2_3 <- update(model2_2, ~.+성별, data=test3)
+model3_3 <- update(model3_2, ~.+성별, data=test3)
+model4_3 <- update(model4_2, ~.+성별, data=test3)
+```
+
+```{r}
+stepmodel1_3 <- MASS::stepAIC(model1_3, direction = "both",trace = FALSE)
+stepmodel2_3 <- MASS::stepAIC(model2_3, direction = "both",trace = FALSE)
+stepmodel3_3 <- MASS::stepAIC(model3_3, direction = "both",trace = FALSE)
+stepmodel4_3 <- MASS::stepAIC(model4_3, direction = "both",trace = FALSE)
+```
+
+```{r}
+summary(stepmodel1_3)
+```
+
+```{r}
+summary(stepmodel2_3)
+```
+
+```{r}
+summary(stepmodel3_3)
+```
+
+```{r}
+summary(stepmodel4_3)
+```
+
+성별은 담기지 않는다. 성별한 아는 것은 유의한 정보일 수 있으나 
+
+**방문 목적을 아는 상황**에선 의미가 없어진다고 볼 수 있다.
+
+```{r}
+df %>% group_by(성별) %>% 
+    select(starts_with('목적_'), -ends_with('위')) %>%
+    summarise_all(funs(mean)) %>% 
+    gather(key='목적', value='ratio', starts_with('목적')) %>%
+    ggplot(aes(x=목적, y=ratio, fill=성별)) +
+    geom_bar(stat='identity', position='dodge')
+```
+
+## Q : 나이는 여행 선호도에 영향이 있을까?
+
+방문목적, 국적을 공변량으로 둔 다음에 ANCOVA를 진행해보자.
+
+```{r}
+test4 <- test2
+test4['나이'] <- df$나이
+model1_4 <- update(model1_2, ~.+나이, data=test4)
+model2_4 <- update(model2_2, ~.+나이, data=test4)
+model3_4 <- update(model3_2, ~.+나이, data=test4)
+model4_4 <- update(model4_2, ~.+나이, data=test4)
+```
+
+```{r}
+stepmodel1_4 <- MASS::stepAIC(model1_4, direction = "both",trace = FALSE)
+stepmodel2_4 <- MASS::stepAIC(model2_4, direction = "both",trace = FALSE)
+stepmodel3_4 <- MASS::stepAIC(model3_4, direction = "both",trace = FALSE)
+stepmodel4_4 <- MASS::stepAIC(model4_4, direction = "both",trace = FALSE)
+```
+
+```{r}
+summary(stepmodel1_4)
+```
+
+
+```{r}
+summary(stepmodel2_4)
+```
+
+
+```{r}
+summary(stepmodel3_4)
+```
+
+
+```{r}
+summary(stepmodel4_4)
+```
+
+토픽 2와 3에서 나이라는 정보는 유의하다.
+
+
+# Modeling - outro
+
+```{r}
+yhat1 <- predict(stepmodel1_4, newdata = df)
+yhat2 <- predict(stepmodel2_4, newdata = df)
+yhat3 <- predict(stepmodel3_4, newdata = df)
+yhat4 <- predict(stepmodel4_4, newdata = df)
+
+estimated_df <- data.frame(topic1 = yhat1, topic2 = yhat2, topic3 = yhat3, topic4 = yhat4)
+```
+
+```{r}
+ggplot(estimated_df, aes(x=topic1)) + geom_density() +
+    geom_density(data=df, color='red')
+```
+
+문제점
+
+> 1. 선형회귀 모형의 설명력이 너무 떨어져서 전체적인 트렌드를 놓친다.
+> 2. 토픽이 저렇게 어중간한 위치에 다 모이면 추천도 애매해지게 된다.
+
+그리고 검은색(estimated topic)과 빨간색(actual value)에 대한 적절한 변환을 못찾겠다.
+
+그러므로 **rank**를 고려해서 변환하도록 하자.
+
+```{r}
+ranking <- df %>% 
+    select(topic1, topic2, topic3, topic4) %>% 
+    mutate(topic1_rank = rank(topic1, ties.method = 'first'),
+           topic2_rank = rank(topic2, ties.method = 'first'),
+           topic3_rank = rank(topic3, ties.method = 'first'),
+           topic4_rank = rank(topic4, ties.method = 'first'))
+```
+
+> 타이가 발생하면 맨 처음 것의 순위가 가장 낮음
+
+```{r}
+ranking_estimated <- estimated_df %>% 
+    select(topic1, topic2, topic3, topic4) %>% 
+    transmute(topic1_rank = rank(topic1, ties.method = 'first'),
+              topic2_rank = rank(topic2, ties.method = 'first'),
+              topic3_rank = rank(topic3, ties.method = 'first'),
+              topic4_rank = rank(topic4, ties.method = 'first'))
+```
+
+```{r}
+temp1 <- left_join(ranking_estimated, ranking, by='topic1_rank') %>% pull(topic1)
+temp2 <- left_join(ranking_estimated, ranking, by='topic2_rank') %>% pull(topic2)
+temp3 <- left_join(ranking_estimated, ranking, by='topic3_rank') %>% pull(topic3)
+temp4 <- left_join(ranking_estimated, ranking, by='topic4_rank') %>% pull(topic4)
+
+r_estimated_df <- data.frame(topic1 = temp1,
+                             topic2 = temp2,
+                             topic3 = temp3,
+                             topic4 = temp4)
+```
+
+```{r}
+ggplot(r_estimated_df, aes(x=topic1)) + geom_density(color='blue', size=2) +
+    geom_density(data=df, color='red')
+```
+
+이 변환의 문제점은 토픽의 합이 1이 안되는 경우가 있다는 것이다.
+
+> 일단 보류
+
+```{r}
+temp_df <- data.frame(sum_topic=apply(r_estimated_df, 1, sum))
+ggplot(temp_df ,aes(x=sum_topic)) + geom_density()
+```
+
+방문목적, 인구통계 정보를 이용하여 만든 추천 토픽이 실제 방문지 토픽과 얼마나 다를 지 그림으로 그려보자. 
+
+```{r}
+temp <- predict(pca, newdata = r_estimated_df)
+temp_viz <- r_estimated_df
+temp_viz$realpc1 <- pca$x[,1]
+temp_viz$realpc2 <- pca$x[,2]
+temp_viz$estpc1 <- temp[,1]
+temp_viz$estpc2 <- temp[,2]
+```
+
+
+```{r}
+original <-ggplot(temp_viz) +
+    geom_bin2d(aes(x=realpc1, y=realpc2)) + xlim(c(-0.5,1)) + ylim(c(-1, 0.55)) +
+    guides(fill=FALSE) +
+    labs(title='topic', x='pc1', y='pc2')
+
+estimated_plot <- ggplot(temp_viz) +
+    geom_bin2d(aes(x=estpc1, y=estpc2)) +
+    guides(fill=FALSE) +
+    labs(title='estimated topic using info', x='pc1', y='pc2')
+
+cowplot::plot_grid(original, estimated_plot)
+```
+
+이제 예상되는 토픽에 대해서 최근접 3개의 관광지를 추천해보자.
+
+```{r}
+eucl <- function(vector){
+    sum(vector^2)
+}
+
+topic_location <- lda_results %>% select(topic1, topic2, topic3, topic4)
+
+recoomend3 <- order(apply(topic_location - as.numeric(r_estimated_df[1,]), 1, eucl)) <= 3
+lda_results[recoomend3,]
+```
+
+# Pipeline
+
+이제 파이프 라인을 생각해보자.
+
+일단 방문 고려요인, 인구통계정보가 들어온다.
+
+그 다음 회귀로 예측을 하고 랭크 변환을 한다.
+
+그 다음 거기에 최근접 3개의 여행지를 추천한다.
+
+~~목적은 한번에 여러개 받지 말고 하나씩 받도록 하는게 더 나을수도.~~ 일단 보류
+
+```{r}
+input <- list()
+input[['목적']] <- c('역사')
+# '목적_역사','목적_K-POP','목적_자연','목적_미용','목적_전통','목적_패션','목적_쇼핑','목적_유흥'
+# factor
+
+input[['국적']] <- '미국'
+# "대만" "독일""러시아" "말레이시아" "몽골" "미국" "베트남" "싱가포르" "영국"       "인도"       "인도네시아" "일본" "중국" "중동" "캐나다""태국""프랑스" "필리핀" "호주" "홍콩"
+# factor
+
+input[['나이']] <- '41-50세'
+# "15-20세", "21-30세", "31-40세", "41-50세", "51-60세", "61세이상"
+# factor
+```
+
+```{r}
+input_df <- data.frame(목적_역사 = ifelse(any(input$목적 %in% '역사'), 1, 0),
+                    목적_KPOP = ifelse(any(input$목적 %in% 'POP'), 1, 0),
+                    목적_자연 = ifelse(any(input$목적 %in% '자연'), 1, 0),
+                    목적_미용 = ifelse(any(input$목적 %in% '미용'), 1, 0),
+                    목적_전통 = ifelse(any(input$목적 %in% '전통'), 1, 0),
+                    목적_패션 = ifelse(any(input$목적 %in% '패션'), 1, 0),
+                    목적_쇼핑 = ifelse(any(input$목적 %in% '쇼핑'), 1, 0),
+                    목적_유흥 = ifelse(any(input$목적 %in% '유흥'), 1, 0),
+                    국적 = input$국적,
+                    나이= input$나이)
+```
+
+```{r}
+yhat1 <- predict(model1_4, newdata=input_df)
+yhat2 <- predict(model2_4, newdata=input_df)
+yhat3 <- predict(model3_4, newdata=input_df)
+yhat4 <- predict(model4_4, newdata=input_df)
+```
+
+랭크 기반 변환
+
+1. 이제 이 yhat을 넣으면 우리의 샘플들로 만든 estimates들 사이에서 몇등에 속하는 지 알아내고
+
+2. 실제 토픽들의 값에 등수에 기반해서 매핑해준다.
+```{r}
+temp1 <- ecdf(predict(model1_4, newdata=df))
+temp2 <- ecdf(predict(model2_4, newdata=df))
+temp3 <- ecdf(predict(model3_4, newdata=df))
+temp4 <- ecdf(predict(model4_4, newdata=df))
+
+r_yhat1 <- temp1(yhat1) # rank
+r_yhat2 <- temp2(yhat2) # rank
+r_yhat3 <- temp3(yhat3) # rank
+r_yhat4 <- temp4(yhat4) # rank
+
+# mapping under estimates's rank
+temp1 <- ecdf(lda_results$topic1)
+temp2 <- ecdf(lda_results$topic2)
+temp3 <- ecdf(lda_results$topic3)
+temp4 <- ecdf(lda_results$topic4)
+
+real_yhat1 <- temp1(r_yhat1)
+real_yhat2 <- temp2(r_yhat2)
+real_yhat3 <- temp3(r_yhat3)
+real_yhat4 <- temp4(r_yhat4)
+
+result <- data.frame(topic1 =real_yhat1, topic2 = real_yhat2, 
+                     topic3 = real_yhat3, topic4 = real_yhat4)
+```
+
+```{r}
+eucl <- function(vector){
+    sum(vector^2)
+}
+
+topic_location <- lda_results %>% select(topic1, topic2, topic3, topic4)
+
+# Three attractions will be recommended
+recoomend3 <- order(apply(topic_location - as.numeric(result), 1, eucl)) <= 3
+recommend <- lda_results[recoomend3,c('category', 'attractions')]
+```
+
+```{r}
+write.csv(recommend, 'Three_recommendation.csv')
+```
+
