@@ -2,11 +2,16 @@
 library(shiny)
 library(tidyverse)
 
+target_list <- readRDS("target_list.rds")
+lda_list <- read_csv("LDA_results.csv")
+lda_list <- lda_list[c('category', 'attractions')]
+
 # ui.R
 
-age_list <- c('under 20', '20s', '30s', '40s', '50s', 'over 60')
-sex_list <- c('Male', 'Female')
-nat_list <- c('China', 'Taiwan', 'Japan', 'U.S.A', 'Other')
+obj_list <- c('역사','K-POP','자연','미용','전통','패션','쇼핑','유흥')
+con_list <- c("대만","독일","러시아","말레이시아","몽골","미국","베트남","싱가포르","영국","인도","인도네시아",
+              "일본","중국","중동","캐나다","태국","프랑스","필리핀","호주","홍콩")
+age_list <- c("15-20세", "21-30세", "31-40세", "41-50세", "51-60세", "61세이상")
 
 ui <- fluidPage(
   
@@ -20,9 +25,9 @@ ui <- fluidPage(
            # INPUT
            h3("Tell Me Who You are"),    
            wellPanel(
-             selectInput("input_age", "Age", choices = c("", age_list)),
-             selectInput("input_sex", "Sex", choices = c("", sex_list)),
-             selectInput("input_nat", "Nationality", choices = c("", nat_list)),
+             selectInput("input_obj", "What do you want to do?", choices = c("", obj_list)),
+             selectInput("input_age", "How old are you?", choices = c("", age_list)),
+             selectInput("input_con", "Where do you come form?", choices = c("", con_list)),
              actionButton("submit", "Complete")
            )
     ),
@@ -62,20 +67,23 @@ server <- function(input, output) {
     # gather input in string
     user_detail <- 
       isolate(
-        unique(c(input$input_age, input$input_sex, input$input_nat))
+        unique(c(input$input_obj, input$input_age, input$input_con))
       )
     
     # Run model
     if(user_detail != ""){
-      if(user_detail[2] == "Male"){
-      recomm <- c('MyneongDong', 'Everland')
-      } else {
-        recomm <- c('Sinchon', 'LotteWorld')
-      }
+      result <- filter(target_list, 목적 == user_detail[1], 국적 == user_detail[3], 나이 == user_detail[2])
+      filter(lda_list, category == result[['recom1']] |
+               category == result[['recom2']] |
+               category == result[['recom3']])['attractions']
+             
+             
     }
+
     
   }
   )
+
   
   output$image <- renderImage({
     
@@ -85,7 +93,7 @@ server <- function(input, output) {
     # gather input in string
     user_detail <- 
       isolate(
-        unique(c(input$input_age, input$input_sex, input$input_nat))
+        unique(c(input$input_obj, input$input_age, input$input_con))
       )
     
     if (user_detail != ""){
