@@ -12,7 +12,7 @@
 
    > input : `review40/*.csv`, `mapping/mapping.csv`
    >
-   > output : `LDA_results.csv`
+   > output : `LDA_results.csv`(39개의 여행지 범주 별 토픽) `LDA_results2.csv`(162개의 여행지 별 )
    >
    > 4개 토픽의LDA를 통해 설문데이터에서 표기된 여행지 40 범주별 토픽 가중치를 뽑아준다.
    >
