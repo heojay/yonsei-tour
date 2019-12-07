@@ -24,13 +24,21 @@
 
 3. demographics_analysis.Rmd
 
-   > input : `preprocessed.csv`, `LDA_results.csv`
+   > input : `preprocessed.csv`, `LDA_results.csv`, `LDA_results2.csv`
    >
    > output : `Three_recommendation.csv`
    >
    > 선형회귀 모형을 기반으로 인구통계정보, 여행목적을 입력할 경우 이에 대응하는 여행지 3개를 추천해준다.
 
+4. geo_visualization.Rmd
+
+   > input : `mapping/mapping_geocode.csv`, `Three_recommendation.csv`
+   >
+   > output : `leaflet map`
+   >
+   > 지도에 관광지의 위치와 정보(곧 추가 될 예정)를 포함한 마커를 띄워준다.
+   
 # 앞으로 할 일
 
-1. 이미 학습시킨 LDA모형으로 약 600개의 여행지 리뷰에 대해 토픽을 뽑아내어서 더 많은 여행지를 추천할 것
-2. 추천 모델의 고도화
+1. 문서화
+2. 
