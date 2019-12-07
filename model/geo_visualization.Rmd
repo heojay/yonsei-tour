@@ -1,0 +1,77 @@
+---
+title: "geo_visualization"
+author: "Lee"
+date: '2019 12 7 '
+output: html_document
+---
+
+```{r, warning=FALSE, message=FALSE}
+library(tidyverse)
+library(ggmap)
+```
+```{r}
+# register_google(key='')
+```
+
+
+```{r}
+# mapping <- read.csv('./mapping/mapping.csv', stringsAsFactors = FALSE)
+# mapping <- mapping[!is.na(mapping$category),]
+```
+
+```{r}
+# mapping <- mapping %>% mutate_geocode(attraction)
+```
+
+```{r}
+# mapping[is.na(mapping$lon), 'attraction']
+```
+```{r}
+# mapping[mapping$attraction=='Bears_Town_Ski_Sled-Pocheon_Gyeonggi_do', c('lon','lat')] = geocode('속초베어스타운')
+# mapping[mapping$attraction=='The_2nd_Tunnel-Cheorwon_gun_Gangwon_do', c('lon','lat')] = geocode('철원 제2땅굴')
+# mapping[mapping$attraction=='Cheonggyesa_Temple-Uiwang_Gyeonggi_do', c('lon','lat')] = geocode('의왕 청계사')
+```
+
+```{r}
+# write.csv(mapping, 'mapping/mapping_geocode.csv')
+```
+
+
+# 파이프라인
+
+Input : 관광지 이름
+
+Output : leaflet지도
+
+```{r}
+mapping <- read.csv('mapping/mapping_geocode.csv')
+```
+
+
+```{r}
+attr_input <- c('Paldalmun_Gate-Suwon_Gyeonggi_do',
+                'Imjingak_Pyeonghoa_Nuri_Park-Paju_Gyeonggi_do',
+                'Cheonggyesan_Mountain-Gwacheon_Gyeonggi_do')
+```
+
+```{r}
+mapping <- mapping[mapping$attraction %in% attr_input,]
+mapping
+```
+
+```{r, warning=FALSE, message=FALSE}
+library(leaflet)
+
+leaflet(data = mapping) %>% 
+  addProviderTiles(providers$OpenStreetMap) %>% 
+  addMarkers(lng=~lon, lat=~lat, clusterOptions = markerClusterOptions(),
+                   popup = ~ as.character(paste0("<strong>",attraction, "</strong><br>",
+                                                 "-----------------------------------------------------------<br>"#,
+#                                                 "&middot; 검찰기관명: ", `최하위기관명`, "<br>",
+#                                                 "&middot; 전화번호: ", `대표전화번호`, "<br>",
+#                                                 "&middot; 새우편번호: ", `새우편번호`, "<br>",
+#                                                 "&middot; 도로명 주소: ", `도로명주소`, "<br>"
+                   )))
+```
+
+
