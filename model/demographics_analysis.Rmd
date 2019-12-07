@@ -168,7 +168,9 @@ summary(stepmodel4)
 
 # Modeling - Midtro
 
-방문 목적은 당연히 고려를 해야하겠지만, 인구 통계정보를 고려하는 것이 맞을까에서 시작한다.
+여행지 추천에서 당연히 방문 목적은 당연히 고려를 해야된다.
+
+하지만 인구 통계정보를 고려하는 것이 맞을까? 라는 질문에서 시작한다.
 
 ```{r}
 demographic <- c('국적', '성별', '나이')
@@ -265,7 +267,7 @@ summary(stepmodel3_3)
 summary(stepmodel4_3)
 ```
 
-성별은 담기지 않는다. 성별한 아는 것은 유의한 정보일 수 있으나 
+성별은 담기지 않는다. 성별을 아는 것은 유의한 정보일 수 있으나 
 
 **방문 목적을 아는 상황**에선 의미가 없어진다고 볼 수 있다.
 
@@ -341,7 +343,7 @@ ggplot(estimated_df, aes(x=topic1)) + geom_density() +
 > 1. 선형회귀 모형의 설명력이 너무 떨어져서 전체적인 트렌드를 놓친다.
 > 2. 토픽이 저렇게 어중간한 위치에 다 모이면 추천도 애매해지게 된다.
 
-그리고 검은색(estimated topic)과 빨간색(actual value)에 대한 적절한 변환을 못찾겠다.
+그리고 검은색(estimated topic)에서 빨간색(actual value)으로 가는 적절한 변환을 못찾겠다.
 
 그러므로 **rank**를 고려해서 변환하도록 하자.
 
@@ -384,7 +386,7 @@ ggplot(r_estimated_df, aes(x=topic1)) + geom_density(color='blue', size=2) +
 
 이 변환의 문제점은 토픽의 합이 1이 안되는 경우가 있다는 것이다.
 
-> 일단 보류
+> **단순 유클리드 거리를 안쓰게 된 이유** 에서 해결.
 
 ```{r}
 temp_df <- data.frame(sum_topic=apply(r_estimated_df, 1, sum))
@@ -402,6 +404,7 @@ temp_viz$estpc1 <- temp[,1]
 temp_viz$estpc2 <- temp[,2]
 ```
 
+**실제 방문지 토픽** VS **Estimated Topic** | 방문목적, 인구통계 정보
 
 ```{r}
 original <-ggplot(temp_viz) +
@@ -432,6 +435,18 @@ lda_results[recoomend3,]
 
 # Pipeline
 
+Given (40 - 1) 범주로 묶은 관광지 리뷰로 학습한 LDA를 이용하여, {162개의 관광지}의 토픽을 뽑은 상황이다.
+
+리니어 모델 피팅할 때는 설문조사 데이터에서 y인 만족 방문지가 범주로 묶여있어서 162개를 40-1개로 뭉쳤는데
+
+이미 모델(`demographics_analysis.Rmd`)은 만든 다음엔 X변수인 국적, 목적, 연령 변수만 들어오면 관심 토픽을 예측을 할 수 있기에
+
+{162개의 관광지}의 토픽을 뽑아서 추천을 하도록 하자.
+
+```{r}
+lda_results2 <- read.csv('LDA_results2.csv') %>% select(-X)
+```
+
 이제 파이프 라인을 생각해보자.
 
 일단 방문 고려요인, 인구통계정보가 들어온다.
@@ -440,7 +455,7 @@ lda_results[recoomend3,]
 
 그 다음 거기에 최근접 3개의 여행지를 추천한다.
 
-~~목적은 한번에 여러개 받지 말고 하나씩 받도록 하는게 더 나을수도.~~ 일단 보류
+목적은 한번에 여러개 받지 말고 하나씩 나눠서 받도록 하자!
 
 ```{r}
 input <- list()
@@ -504,23 +519,67 @@ real_yhat2 <- temp2(r_yhat2)
 real_yhat3 <- temp3(r_yhat3)
 real_yhat4 <- temp4(r_yhat4)
 
-result <- data.frame(topic1 =real_yhat1, topic2 = real_yhat2, 
-                     topic3 = real_yhat3, topic4 = real_yhat4)
+##############################################################
+########## SEE 단순 유클리드 거리를 안쓰게 된 이유 ###########
+##############################################################
+# result <- data.frame(topic1 =real_yhat1, topic2 = real_yhat2, 
+#                      topic3 = real_yhat3, topic4 = real_yhat4)
+
+WEIGHTS <- c(5, 2.5, 1.5, 1)
+real_yhats <- c(real_yhat1, real_yhat2, real_yhat3, real_yhat4)
+ry_orders <- order(-real_yhats)
+i = 1
+for(ord in ry_orders){
+    real_yhats[ord] <- real_yhats[ord] * WEIGHTS[i]
+    i = i + 1
+}
+real_yhats = real_yhats / sum(real_yhats)
+
+result <- data.frame(topic1 =real_yhats[1], topic2 = real_yhats[2], 
+                     topic3 = real_yhats[3], topic4 = real_yhats[4])
 ```
+
+단순 유클리드를 안쓰기로 결정!
 
 ```{r}
 eucl <- function(vector){
     sum(vector^2)
 }
 
-topic_location <- lda_results %>% select(topic1, topic2, topic3, topic4)
+topic_location <- lda_results2 %>% select(topic1, topic2, topic3, topic4)
 
 # Three attractions will be recommended
 recoomend3 <- order(apply(topic_location - as.numeric(result), 1, eucl)) <= 3
-recommend <- lda_results[recoomend3,c('category', 'attractions')]
+recommend <- lda_results2[recoomend3,c('attraction')]
 ```
 
 ```{r}
 write.csv(recommend, 'Three_recommendation.csv')
 ```
+
+# 단순 유클리드 거리를 안쓰게 된 이유
+
+실제 토픽은 4-심플렉스에 갇혀있고 Estimated 토픽은 심플렉스 바깥에 있기 때문에 토픽의 비중과 관련없는 것들이 뽑히게 된다.
+
+예를 들어서 Estimated 토픽은 3이 가장 크지만 146번 토픽은 토픽3과 관련이 없다.
+
+고로 이에 대한 해결 방법으로 **Estimated 토픽을 심플렉스로 Estimated 토픽의 순위에 따라서 가중치를 다르게 주며 가져오자**.
+
+가중치를 주는 이유는 단순하게 합이 1이되도록 총합을 나눠주면  토픽이 애매해진다.
+
+```{r}
+result <- data.frame(topic1 =real_yhat1, topic2 = real_yhat2, 
+                     topic3 = real_yhat3, topic4 = real_yhat4)
+result
+```
+
+```{r}
+topic_location <- lda_results2 %>% select(topic1, topic2, topic3, topic4)
+
+# Three attractions will be recommended
+recoomend3 <- order(apply(topic_location - as.numeric(result), 1, eucl)) <= 3
+lda_results2[recoomend3,] %>% select(topic1, topic2, topic3, topic4)
+```
+
+
 
