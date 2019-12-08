@@ -42,7 +42,7 @@
 
    > input : `LDA_results2`, `mapping_geocode.csv`
    >
-   > output : `leaflet map`(목적, 인구통계 기반)
+   > output : `leaflet map`(테마 기반)
 # 앞으로 할 일
 
 1. 문서화
