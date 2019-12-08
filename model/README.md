@@ -20,7 +20,7 @@
    >
    > (주의) : review40/ 의 여행지 인덱스를 세자리수로 바꾸었다. 
    >
-   > > `0 Myeongdong_Shopping_Street-Seoul.csv` ==>`000 Myeongdong_Shopping_Street-Seoul.csv`
+   > > 0 Myeongdong_Shopping_Street-Seoul.csv ==>000 Myeongdong_Shopping_Street-Seoul.csv
 
 3. demographics_analysis.Rmd
 
@@ -34,11 +34,16 @@
 
    > input : `mapping/mapping_geocode.csv`, `Three_recommendation.csv`
    >
-   > output : `leaflet map`
+   > output : `leaflet map`(목적, 인구통계 기반)
    >
    > 지도에 관광지의 위치와 정보(곧 추가 될 예정)를 포함한 마커를 띄워준다.
    
+5. geo_visualization_theme.Rmd
+
+   > input : `LDA_results2`, `mapping_geocode.csv`
+   >
+   > output : `leaflet map`(목적, 인구통계 기반)
 # 앞으로 할 일
 
 1. 문서화
-2. 
+2. mapping/mapping_geocode.csv 에 여행지 descrition추가 (예를 들어서 전화번호, 트립어드바이저 링크...)
