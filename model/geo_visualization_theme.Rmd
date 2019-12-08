@@ -1,0 +1,96 @@
+---
+title: "geo_visualization_theme"
+author: "Lee"
+date: '2019 12 8 '
+output: html_document
+---
+
+# 파이프라인
+
+Input : 테마 ,LDA_results2, mapping_geocode.csv
+
+Output : leaflet지도
+
+```{r, warning=FALSE, message=FALSE}
+library(tidyverse)
+```
+
+```{r}
+lda_result <- read.csv('./LDA_results2.csv', stringsAsFactors = FALSE)
+mapping <- read.csv('./mapping/mapping_geocode.csv', stringsAsFactors = FALSE)
+```
+
+애매한 관광지는 테마여행에 포함하지 않는다,
+
+```{r}
+RECOMMEND <- 0.8
+lda_result <- left_join(lda_result, mapping, by='attraction')
+lda_result <- lda_result %>% filter(highest_ratio > RECOMMEND) # 162 ==> 100
+```
+
+**1번 (도시 - 조용한)**
+
+**2번 (도시 - 번화가의)**
+
+**3번 (역사 - 조용한)**
+
+**4번 (자연의 자연 - 조용한)**
+
+```{r}
+lda_result[lda_result$highest_topic==1,]$highest_topic <- 'Downtown'
+lda_result[lda_result$highest_topic==2,]$highest_topic <- 'Uptown'
+lda_result[lda_result$highest_topic==3,]$highest_topic <- 'Historic'
+lda_result[lda_result$highest_topic==4,]$highest_topic <- 'Natural'
+lda_result$highest_topic <- as.factor(lda_result$highest_topic)
+```
+
+
+```{r, warning=FALSE, message=FALSE}
+library(crosstalk)
+library(leaflet)
+```
+
+```{r}
+df_sd <- SharedData$new(lda_result)
+
+# control
+filter_select("select", "Topic", df_sd, ~highest_topic, multiple = FALSE)
+```
+
+
+```{r}
+getColor <- function(dataframe) {
+    sapply(dataframe$highest_topic, function(highest_topic) {
+        if(highest_topic=='Uptown') {
+            "orange"
+        } else if(highest_topic=='Downtown') {
+            "red"
+        } else if(highest_topic=='Historic'){
+            "blue"
+        } else if(highest_topic=='Natural'){
+            'green'
+        }
+    }
+    )
+}
+
+icons <- awesomeIcons(
+    icon = 'ios-close',
+    iconColor = 'black',
+    library = 'ion',
+    markerColor = getColor(lda_result)
+)
+
+leaflet(df_sd) %>% 
+  addTiles() %>% 
+  addAwesomeMarkers(~lon, ~lat, icon=icons,
+                   popup = ~ as.character(paste0("<strong>",attraction, "</strong><br>",
+                                                 "-----------------------------------------------------------<br>"#,
+#                                                 "&middot; 검찰기관명: ", `최하위기관명`, "<br>",
+#                                                 "&middot; 전화번호: ", `대표전화번호`, "<br>",
+#                                                 "&middot; 새우편번호: ", `새우편번호`, "<br>",
+#                                                 "&middot; 도로명 주소: ", `도로명주소`, "<br>"
+                   ))
+)
+```
+
