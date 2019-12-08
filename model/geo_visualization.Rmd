@@ -39,7 +39,7 @@ library(ggmap)
 
 # 파이프라인
 
-Input : 관광지 이름
+Input : 관광지 이름, mapping_geocode.csv
 
 Output : leaflet지도
 
@@ -64,7 +64,7 @@ library(leaflet)
 
 leaflet(data = mapping) %>% 
   addProviderTiles(providers$OpenStreetMap) %>% 
-  addMarkers(lng=~lon, lat=~lat, clusterOptions = markerClusterOptions(),
+  addMarkers(lng=~lon, lat=~lat, #clusterOptions = markerClusterOptions(),
                    popup = ~ as.character(paste0("<strong>",attraction, "</strong><br>",
                                                  "-----------------------------------------------------------<br>"#,
 #                                                 "&middot; 검찰기관명: ", `최하위기관명`, "<br>",
