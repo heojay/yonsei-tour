@@ -1,10 +1,14 @@
 # test
 library(shiny)
 library(tidyverse)
+library(leaflet)
+library(rowr)
 
 target_list <- readRDS("target_list.rds")
 lda_list <- read_csv("LDA_results.csv")
-lda_list <- lda_list[c('category', 'attractions')]
+mapping <- read.csv('mapping/mapping_geocode.csv')
+
+
 
 # ui.R
 
@@ -43,6 +47,8 @@ ui <- fluidPage(
     
   ),
   
+  leafletOutput("mymap"),
+  
   # COMMENTS    
   fluidRow(                                    
     column(12,
@@ -73,17 +79,44 @@ server <- function(input, output) {
     # Run model
     if(user_detail != ""){
       result <- filter(target_list, 목적 == user_detail[1], 국적 == user_detail[3], 나이 == user_detail[2])
-      filter(lda_list, category == result[['recom1']] |
+      result <- filter(lda_list, category == result[['recom1']] |
                category == result[['recom2']] |
-               category == result[['recom3']])['attractions']
-             
-             
+               category == result[['recom3']])
+      temp <- lda_list['attractions']
+      temp <- apply(temp, 2, function(x) strsplit(x, ' '))
+      temp <- cbind.fill(temp[[1]][[1]], temp[[1]][[2]], temp[[1]][[3]], fill=NA)
+      colnames(temp) = c('Topic1', 'Topic2', 'Topic3')
+      temp
     }
-
     
   }
   )
+  
+  output$mymap <- renderLeaflet({
+    
+    # react to submit button
+    input$submit
+    
+    # gather input in string
+    user_detail <- 
+      isolate(
+        unique(c(input$input_obj, input$input_age, input$input_con))
+      )
+    
+    # Run model
+    if(user_detail != ""){
+      result <- filter(target_list, 목적 == user_detail[1], 국적 == user_detail[3], 나이 == user_detail[2])
+      result <- filter(lda_list, category == result[['recom1']] |
+                         category == result[['recom2']] |
+                         category == result[['recom3']])
+      temp <- pull(lda_list['attractions'])
+      attr_input <- c(strsplit(temp[1], ' ')[[1]][1], strsplit(temp[2], ' ')[[1]][1], strsplit(temp[3], ' ')[[1]][1])
 
+      leaflet(data = mapping[mapping$attraction %in% attr_input,]) %>%
+        addProviderTiles(providers$OpenStreetMap) %>%
+        addMarkers(lng=~lon, lat=~lat, popup = ~ as.character(paste0("<strong>", attraction)))
+    }                  
+  })
   
   output$image <- renderImage({
     
