@@ -196,7 +196,7 @@ ggplot(test_demographic, aes(pc1, pc2)) +
 
 ## Q : 국적은 여행 선호도에 영향이 있을까?
 
-방문 목적을 공변량으로 둔 다음에 ANCOVA를 진행해보자.
+방문 목적을 공변량으로 둔 다음에 선형회귀를 진행해보자.
 
 ```{r}
 test2 <- test
@@ -233,7 +233,7 @@ AIC를 이용한 모델 셀렉션에서 선택된 것에 기반하여 국적 변
 
 ## Q : 성별은 여행 선호도에 영향이 있을까?
 
-방문목적, 국적을 공변량으로 둔 다음에 ANCOVA를 진행해보자.
+방문목적, 국적을 공변량으로 둔 다음에 선형회귀를 진행해보자.
 
 ```{r}
 test3 <- test2
@@ -282,7 +282,7 @@ df %>% group_by(성별) %>%
 
 ## Q : 나이는 여행 선호도에 영향이 있을까?
 
-방문목적, 국적을 공변량으로 둔 다음에 ANCOVA를 진행해보자.
+방문목적, 국적을 공변량으로 둔 다음에 선형회귀를 진행해보자.
 
 ```{r}
 test4 <- test2
@@ -334,8 +334,12 @@ estimated_df <- data.frame(topic1 = yhat1, topic2 = yhat2, topic3 = yhat3, topic
 ```
 
 ```{r}
-ggplot(estimated_df, aes(x=topic1)) + geom_density() +
-    geom_density(data=df, color='red')
+ggplot(estimated_df, aes(x=topic2, color='black')) + stat_density(geom='line') +
+    geom_density(data=df, aes(color='red')) +
+    scale_colour_manual(name = 'Type',
+                        values =c('black'='black','red'='red'), labels = c('예측','실제'))+
+    labs(title='예측토픽과 실제토픽') +
+    theme(plot.title = element_text(face = "bold", size = 20, hjust=0.5))
 ```
 
 문제점
