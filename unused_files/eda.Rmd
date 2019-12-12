@@ -1,0 +1,75 @@
+---
+title: "Untitled"
+author: "SeongJin Kim"
+date: "2019년 12월 12일"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r import data, echo = FALSE}
+# setwd("C:/Users/iihsk/Desktop/yonsei-tour")
+# data <- read.csv(file="C:/Users/iihsk/Desktop/preprocessed.csv", na.string = "<NA>", stringsAsFactors = TRUE , fileEncoding = "euc-kr")
+data <- read.csv(file="/model/preprocessed.csv", na.string = "<NA>", ,fileEncoding = "euc-kr")
+library(tidyverse)
+```
+
+## 한국 방문을 선택하게 된 요인들
+
+data 변수 중 목적_1위, 목적_2위, 목적_3위가 한국 방문을 선택하게 한 요인에 해당한다. 
+
+```{r count the number of purposes, echo = FALSE}
+purpose <- data[, which(colnames(data) %in% c("목적_1위", "목적_2위", "목적_3위"))]
+purposes <- rbind(purpose[,1], purpose[,2], purpose[,3])
+length(unique(purposes))
+
+purpose <- data[,which(colnames(data)=="목적_1위")]
+purposes <- levels(purpose)
+```
+
+국가별 관광객이 한국을 방문할 때 고려하는 요인을 다시 그린다. 지난 중간 발표 때 `파이 차트(Pie Chart)`를 그렸던 것이 *'항목별 차이가 제대로 보이지 않는다'*는 지적을 받았다. 
+자료의 각 범주를 뚜렷하게 구별해 보일 수 있는 방법으로 `stacked barplot`을 그린다. `파이 차트`가 *각도(angle)의 차이*로 범주별 비중을 나타낸다면 `stacked barplot`은 *개별 막대의 높이*로 관측 빈도의 차이를 나타낸다.
+
+기존에 파이 차트로 그린 데이터는 원 데이터를 분석한 결과가 아닌, 한국관광공사가 정리한 결과 보고서를 바탕으로 그린 그림이었다. 이번에 그릴 barplot은 범주별 관측값을 직접 세야 하기 때문에 원 데이터를 참고한다. 그런데, 원 데이터 통해 확인한 방문 요인은 모두 17개로, 파이 차트에 반영된 범주(8)개보다 많다. 범주가 너무 많으면 분석 결과도 뚜렷하게 보이기 힘드니, 8개 범주로 데이터를 병합한다.  
+
+```{r list of purposes, echo=FALSE}
+print(purposes)
+```
+
+한국관광공사가 발표한 방문 목적 8개는 다음과 같다 : `쇼핑, 식도락, 역사.유적지, 자연.풍경.감상, 친구, 케이팝, 패션.트렌드, 휴식`
+
+원 데이터에 있는 17개 범주 중 [2] [3] [4] [7] [11]은 `관광 편의`로 새로 지정한다. 
+[1]은 `케이팝` [8][15]는 `역사와 유적` [16]은 `패션과 트렌드`로 이름 바꾼다.
+
+```{r manipulate purpose}
+index <- purpose %in% purposes[c(2,3,4,7,11)]
+levels(purpose) <- c("케이팝", "관광 편의", "관광 편의", "관광 편의", "레저 및 스포츠", "쇼핑", "관광 편의", "역사와 유적", "휴식", "식도락", "관광 편의", "자연 및 풍경", "관광 편의", "지인 방문", "역사와 유적", "패션과 트렌드", "휴식")
+
+data[, which(colnames(data)=="목적_1위")] <- purpose
+```
+
+
+```{r stacked bar plot}
+library(plotly)
+
+purpose_of_visit <- data[, which(colnames(data) %in% c("목적_1위", "국적"))]
+colnames(purpose_of_visit) <- c("purpose", "nationality")
+
+purpose_of_visit %>% 
+  count(nationality, purpose) %>% 
+  #group_by(nationality, purpose) %>% 
+  #mutate(rate = n / sum(n)) %>% 
+  plot_ly(x = ~nationality, y = ~ n, color = ~purpose) %>% 
+    add_bars() %>% 
+    layout(barmode = "stack")
+```
+
+위와 같이 그린 `인터랙티브 시각화-Stacked bar plot`은 기존에 그린 `파이 차트`와 비교할 때 몇 가지 장점이 있다. 첫 째, 국가별 막대 길이를 통해 나라별로 얼마나 많은 관광객이 찾았는지 알 수 있다. 둘째, 색깔별로 다른 막대의 길이 차이가 확연하게 보여, 관광 목적 중 무엇이 주요한지 알 수 있다. 마지막으로, 인터랙티브 시각화를 했기 때문에 막대 길이의 차이가 모호하면 커서를 올려 구체적인 수치를 알 수 있다. 이에, `파이 차트`를 쓰는 것보다 `Stacked barplot`, 특히 인터랙티브한 그래프를 그릴 때 필요한 정보를 효과적으로 전달할 수 있다. 
