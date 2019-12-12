@@ -98,5 +98,12 @@ Simplex를 종속 변수 y로 두는 회귀모형이 없는 관계로,  각 토�
 
 ![](/Users/jaewonheo/Documents/yonsei-tour/mid_report_fig/prototype.png)
 
+### 접속
+[이 주소](https://yerinkwon.shinyapps.io/shiny_app/)로 접속하면 초기 화면이 생성된다.
 
+### 입력
+화면 좌측의 사이드 판넬에서 방문 목적, 연령대, 국가를 선택하고 Complete 버튼을 누른다.
+
+### 출력
+세 개의 추천 관광지를 나타내는 리스트와 함께 각 관광지의 위치가 지도에 표시된다. 하단의 사진은 각 관광지를 대표하는 이미지를 보여준다.
 
