@@ -2,7 +2,6 @@
 library(shiny)
 library(tidyverse)
 library(leaflet)
-library(rowr)
 
 target_list <- readRDS("target_list.rds")
 lda_list <- read.csv("LDA_results2.csv")
@@ -33,19 +32,36 @@ ui <- fluidPage(
   ),
   
   mainPanel(
-    h3("The Atrractions you Might Be Interested in"),
-    imageOutput("image", height = 300),
-    tableOutput("item_recom")
+    fluidRow(
+      h3("The Atrractions you Might Be Interested in"),
+      column(4,
+             tableOutput("item_recom")
+             ),
+      column(8,
+             leafletOutput("mymap"))
+    )
   ),
   
+  
+  fluidRow(
+    column(4,
+           imageOutput("image1", height = 300)
+    ),
+    column(4,
+           imageOutput("image2", height = 300)
+    ),
+    column(4,
+           imageOutput("image3", height = 300)
+    )
+    
+  ),
   # COMMENTS    
   fluidRow(     
-    leafletOutput("mymap"),
     column(12,
            p("For a detailed description of this project, please visit our", 
              a("Github.", href="https://github.com/yonseijaewon/yonsei-tour", target="_blank"))
     )
-  )
+  ) 
 )
 
 
@@ -67,11 +83,10 @@ server <- function(input, output) {
     # Run model
     if(user_detail != ""){
       userdata <- filter(target_list, 목적 == user_detail[1], 나이 == user_detail[2], 국적 == user_detail[3])
-      result <- lda_list[userdata[['recom1']],]
-      result <- rbind(result, lda_list[userdata[['recom2']],])
-      result <- rbind(result, lda_list[userdata[['recom3']],])
-      
-      result <- result[,c('attraction')]
+      result <- lda_list[userdata[['recom1']],] %>%
+        rbind(lda_list[userdata[['recom2']],]) %>%
+        rbind(lda_list[userdata[['recom3']],])
+      result[,c('attraction')]
     }
   }
   )
@@ -102,7 +117,7 @@ server <- function(input, output) {
     }                  
   })
   
-  output$image <- renderImage({
+  output$image1 <- renderImage({
     
     # react to submit button
     input$submit
@@ -115,35 +130,85 @@ server <- function(input, output) {
     
     if (user_detail != ""){
       userdata <- filter(target_list, 목적 == user_detail[1], 나이 == user_detail[2], 국적 == user_detail[3])
-      recc_list <- c(userdata[['recom1']],userdata[['recom2']],userdata[['recom3']])
+      place <- lda_list[userdata[['recom1']],'category']
       
-      if (user_detail[2] == "Male") {
-        return(list(
-          src = "images/myeongdong.jpg",
-          contentType = "image/jpg",
-          height = 300,
-          alt = "Myeongdong"
-        ))
-      } else {
-        return(list(
-          src = "images/sinchon.jpeg",
-          filetype = "image/jpeg",
-          height = 300,
-          alt = "Sinchon"
-        ))
-      }
+      return(list(
+        src = paste("images/",place,".jpg",sep = ""),
+        filetype = "image/jpg",
+        height = 300,
+        alt = "place1"
+      ))
+      
     } else {
       return(list(
-                  src = "images/default.png",
-                  filetype = "image/png",
+                  src = "images/welcome1.jpg",
+                  filetype = "image/jpg",
                   height = 300,
-                  alt = "Sinchon"
+                  alt = "welcome1"
       ))
     }
     
   }, deleteFile = FALSE)
   
+  output$image2 = renderImage({
+    # react to submit button
+    input$submit
+    
+    # gather input in string
+    user_detail <- 
+      isolate(
+        unique(c(input$input_obj, input$input_age, input$input_con))
+      )
+    
+    if (user_detail != ""){
+      userdata <- filter(target_list, 목적 == user_detail[1], 나이 == user_detail[2], 국적 == user_detail[3])
+      place <- lda_list[userdata[['recom2']],'category']
+      
+      return(list(
+        src = paste("images/",place,".jpg",sep = ""),
+        filetype = "image/jpg",
+        height = 300,
+        alt = "place2"
+      ))
+    }else{
+      return(list(
+        src = "images/welcome2.jpg",
+        filetype = "image/jpg",
+        height = 300,
+        alt = "welcome2"
+      ))
+    }
+  }, deleteFile = FALSE)
+  
+  output$image3 = renderImage({
+    # react to submit button
+    input$submit
+    
+    # gather input in string
+    user_detail <- 
+      isolate(
+        unique(c(input$input_obj, input$input_age, input$input_con))
+      )
+    
+    if (user_detail != ""){
+      userdata <- filter(target_list, 목적 == user_detail[1], 나이 == user_detail[2], 국적 == user_detail[3])
+      place <- lda_list[userdata[['recom3']],'category']
+      
+      return(list(
+        src = paste("images/",place,".jpg",sep = ""),
+        filetype = "image/jpg",
+        height = 300,
+        alt = "place3"
+      ))
+    }else{
+      return(list(
+        src = "images/welcome3.jpg",
+        filetype = "image/jpg",
+        height = 300,
+        alt = "welcome3"
+      ))
+    }
+  }, deleteFile = FALSE)
 }
-
 
 shinyApp(ui = ui, server = server)
