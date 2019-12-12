@@ -5,7 +5,7 @@ library(leaflet)
 library(rowr)
 
 target_list <- readRDS("target_list.rds")
-lda_list <- read_csv("LDA_results.csv")
+lda_list <- read.csv("LDA_results2.csv")
 mapping <- read.csv('mapping/mapping_geocode.csv')
 
 
@@ -33,8 +33,8 @@ ui <- fluidPage(
   ),
   
   mainPanel(
+    h3("The Atrractions you Might Be Interested in"),
     imageOutput("image", height = 300),
-    h3("The Atrractions you Might Be Interested in"),     
     tableOutput("item_recom")
   ),
   
@@ -55,8 +55,6 @@ ui <- fluidPage(
 server <- function(input, output) {
 
   output$item_recom <- renderTable({
-    
-    
     # react to submit button
     input$submit
     
@@ -68,17 +66,13 @@ server <- function(input, output) {
     
     # Run model
     if(user_detail != ""){
-      result <- filter(target_list, 목적 == user_detail[1], 국적 == user_detail[3], 나이 == user_detail[2])
-      result <- filter(lda_list, category == result[['recom1']] |
-               category == result[['recom2']] |
-               category == result[['recom3']])
-      temp <- lda_list['attractions']
-      temp <- apply(temp, 2, function(x) strsplit(x, ' '))
-      temp <- cbind.fill(temp[[1]][[1]], temp[[1]][[2]], temp[[1]][[3]], fill=NA)
-      colnames(temp) = c('Topic1', 'Topic2', 'Topic3')
-      temp
+      userdata <- filter(target_list, 목적 == user_detail[1], 나이 == user_detail[2], 국적 == user_detail[3])
+      result <- lda_list[userdata[['recom1']],]
+      result <- rbind(result, lda_list[userdata[['recom2']],])
+      result <- rbind(result, lda_list[userdata[['recom3']],])
+      
+      result <- result[,c('attraction')]
     }
-    
   }
   )
   
@@ -95,13 +89,13 @@ server <- function(input, output) {
     
     # Run model
     if(user_detail != ""){
-      result <- filter(target_list, 목적 == user_detail[1], 국적 == user_detail[3], 나이 == user_detail[2])
-      result <- filter(lda_list, category == result[['recom1']] |
-                         category == result[['recom2']] |
-                         category == result[['recom3']])
-      temp <- pull(lda_list['attractions'])
-      attr_input <- c(strsplit(temp[1], ' ')[[1]][1], strsplit(temp[2], ' ')[[1]][1], strsplit(temp[3], ' ')[[1]][1])
+      userdata <- filter(target_list, 목적 == user_detail[1], 나이 == user_detail[2], 국적 == user_detail[3])
+      result <- lda_list[userdata[['recom1']],]
+      result <- rbind(result, lda_list[userdata[['recom2']],])
+      result <- rbind(result, lda_list[userdata[['recom3']],])
 
+      attr_input <- result[,c('attraction')]
+      
       leaflet(data = mapping[mapping$attraction %in% attr_input,]) %>%
         addProviderTiles(providers$OpenStreetMap) %>%
         addMarkers(lng=~lon, lat=~lat, popup = ~ as.character(paste0("<strong>", attraction)))
@@ -120,6 +114,9 @@ server <- function(input, output) {
       )
     
     if (user_detail != ""){
+      userdata <- filter(target_list, 목적 == user_detail[1], 나이 == user_detail[2], 국적 == user_detail[3])
+      recc_list <- c(userdata[['recom1']],userdata[['recom2']],userdata[['recom3']])
+      
       if (user_detail[2] == "Male") {
         return(list(
           src = "images/myeongdong.jpg",
