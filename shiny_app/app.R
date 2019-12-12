@@ -5,16 +5,21 @@ library(leaflet)
 
 target_list <- readRDS("target_list.rds")
 lda_list <- read.csv("LDA_results2.csv")
+link_list <- read.csv("40_reviews_2.csv")
 mapping <- read.csv('mapping/mapping_geocode.csv')
-
+mapping <- left_join(mapping, link_list, by = 'attraction')
 
 
 # ui.R
 
-obj_list <- c('역사','K-POP','자연','미용','전통','패션','쇼핑','유흥')
-con_list <- c("대만","독일","러시아","말레이시아","몽골","미국","베트남","싱가포르","영국","인도","인도네시아",
+obj_list <- c('History', 'K-POP', 'Nature', 'Beauty', 'Tradition', 'Fashion', 'Shopping', 'Entertainment')
+con_list <- c('Taiwan', 'Germany', 'Russia', 'Malaysia', 'Mongol', 'Vietnam', 'Singapore', 'United Kingdom', 'India', 'Indonesia', 'Japan', 'China', 'Mid-East', 'Canada', 'Thailand', 'France', 'Philippines', 'Australia', 'Hong Kong')
+age_list <- c("-20", "21-30", "31-40", "41-50", "51-60", "61-")
+
+obj_list_in <- c('역사','K-POP','자연','미용','전통','패션','쇼핑','유흥')
+con_list_in <- c("대만","독일","러시아","말레이시아","몽골","미국","베트남","싱가포르","영국","인도","인도네시아",
               "일본","중국","중동","캐나다","태국","프랑스","필리핀","호주","홍콩")
-age_list <- c("15-20세", "21-30세", "31-40세", "41-50세", "51-60세", "61세이상")
+age_list_in <- c("15-20세", "21-30세", "31-40세", "41-50세", "51-60세", "61세이상")
 
 ui <- fluidPage(
   
@@ -77,11 +82,13 @@ server <- function(input, output) {
     # gather input in string
     user_detail <- 
       isolate(
-        unique(c(input$input_obj, input$input_age, input$input_con))
+        unique(c(obj_list_in[match(input$input_obj, obj_list)],
+                 age_list_in[match(input$input_age, age_list)],
+                 con_list_in[match(input$input_con, con_list)]))
       )
     
     # Run model
-    if(user_detail != ""){
+    if(input$submit != 0){
       userdata <- filter(target_list, 목적 == user_detail[1], 나이 == user_detail[2], 국적 == user_detail[3])
       result <- lda_list[userdata[['recom1']],] %>%
         rbind(lda_list[userdata[['recom2']],]) %>%
@@ -99,21 +106,21 @@ server <- function(input, output) {
     # gather input in string
     user_detail <- 
       isolate(
-        unique(c(input$input_obj, input$input_age, input$input_con))
+        unique(c(obj_list_in[match(input$input_obj, obj_list)],
+                 age_list_in[match(input$input_age, age_list)],
+                 con_list_in[match(input$input_con, con_list)]))
       )
     
     # Run model
-    if(user_detail != ""){
+    if(input$submit != 0){
       userdata <- filter(target_list, 목적 == user_detail[1], 나이 == user_detail[2], 국적 == user_detail[3])
-      result <- lda_list[userdata[['recom1']],]
-      result <- rbind(result, lda_list[userdata[['recom2']],])
-      result <- rbind(result, lda_list[userdata[['recom3']],])
-
+      result <- rbind(lda_list[userdata[['recom1']],], lda_list[userdata[['recom2']],], lda_list[userdata[['recom3']],])
       attr_input <- result[,c('attraction')]
       
       leaflet(data = mapping[mapping$attraction %in% attr_input,]) %>%
         addProviderTiles(providers$OpenStreetMap) %>%
-        addMarkers(lng=~lon, lat=~lat, popup = ~ as.character(paste0("<strong>", attraction)))
+        addMarkers(lng=~lon, lat=~lat,
+                   popup = ~ paste0("<strong>",paste0(paste0(paste0(paste0("<a href=\"", urls), "\">"), attraction), "</a>")))
     }                  
   })
   
@@ -125,10 +132,12 @@ server <- function(input, output) {
     # gather input in string
     user_detail <- 
       isolate(
-        unique(c(input$input_obj, input$input_age, input$input_con))
+        unique(c(obj_list_in[match(input$input_obj, obj_list)],
+                 age_list_in[match(input$input_age, age_list)],
+                 con_list_in[match(input$input_con, con_list)]))
       )
     
-    if (user_detail != ""){
+    if (input$submit != 0){
       userdata <- filter(target_list, 목적 == user_detail[1], 나이 == user_detail[2], 국적 == user_detail[3])
       place <- lda_list[userdata[['recom1']],'category']
       
@@ -157,10 +166,12 @@ server <- function(input, output) {
     # gather input in string
     user_detail <- 
       isolate(
-        unique(c(input$input_obj, input$input_age, input$input_con))
+        unique(c(obj_list_in[match(input$input_obj, obj_list)],
+                 age_list_in[match(input$input_age, age_list)],
+                 con_list_in[match(input$input_con, con_list)]))
       )
     
-    if (user_detail != ""){
+    if (input$submit != 0){
       userdata <- filter(target_list, 목적 == user_detail[1], 나이 == user_detail[2], 국적 == user_detail[3])
       place <- lda_list[userdata[['recom2']],'category']
       
@@ -187,10 +198,12 @@ server <- function(input, output) {
     # gather input in string
     user_detail <- 
       isolate(
-        unique(c(input$input_obj, input$input_age, input$input_con))
+        unique(c(obj_list_in[match(input$input_obj, obj_list)],
+                 age_list_in[match(input$input_age, age_list)],
+                 con_list_in[match(input$input_con, con_list)]))
       )
     
-    if (user_detail != ""){
+    if (input$submit != 0){
       userdata <- filter(target_list, 목적 == user_detail[1], 나이 == user_detail[2], 국적 == user_detail[3])
       place <- lda_list[userdata[['recom3']],'category']
       
