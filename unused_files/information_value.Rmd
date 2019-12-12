@@ -1,0 +1,30 @@
+---
+title: "information_value"
+author: "SeongJin Kim"
+date: "2019년 12월 13일"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r install package Information}
+install.packages("Information")
+library(Information)
+```
+
+```{r import data}
+# setwd("C:/Users/iihsk/Desktop/yonsei-tour")
+# data <- read.csv(file="C:/Users/iihsk/Desktop/preprocessed.csv", na.string = "<NA>", stringsAsFactors = TRUE , fileEncoding = "euc-kr")
+data <- read.csv(file="/model/preprocessed.csv", na.string = "<NA>", ,fileEncoding = "euc-kr")
+library(tidyverse)
+```
+
+
+```{r information table}
+analysis_data <- data[, which(colnames(data)%in%c("목적_1위", "여행전이미지", "방문월", "국적", "성별", "나이",  "만족방문지"))]
+
+# data_iv <- create_infotables(data = analysis_data, y = "만족방문지", bins = 10, parallel = TRUE)
+```
+
