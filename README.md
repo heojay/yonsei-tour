@@ -89,11 +89,7 @@ Simplex를 종속 변수 y로 두는 회귀모형이 없는 관계로,  각 토�
 
 1. AIC를 기반으로 stepwise selection을 사용하여 토픽을 설명하는데 필요한 모델을 고르게 된다.
 2. 방문목적과 인구통계 변수가 들어왔을 때, 토픽1부터 4까지 예측한다.
-3. 기존의 토픽 순위에 맞게 예측값을 변환한다. (이러한 변환이 없으면 애매한 토픽이 예측된다.)
-
-![](https://drive.google.com/uc?export=view&id=1mpTWn5t7XBcQ9HfK1EvbeNLLWkFbZwXr)
-
-4. 예측된 토픽을 기반으로 가장 가까운 여행지 3가지를 추천해준다.
+3. 예측된 토픽을 기반으로 가장 가까운 여행지 3가지를 추천해준다.
 
 ## Shiny Application
 
