@@ -4,6 +4,9 @@
 
 - 한국의 관광지를 Tripadvisor 리뷰를 기반으로 하는 잠재 디리클레 할당으로 분류하고, 외래관광객 실태조사 결과와 매치시켜 사용자에게 유사한 관광지 혹은 관광 테마 전반을 제안한다.
 - ["우리 또래는 어딜 갔었나"...맞춤형 관광지 추천 앱 나온다](https://news.naver.com/main/read.nhn?mode=LSD&mid=sec&sid1=102&oid=047&aid=0002249808)
+- 보도자료 : ["우리 또래는 어딜 갔었나"...맞춤형 관광지 추천 앱 나온다](https://news.naver.com/main/read.nhn?mode=LSD&mid=sec&sid1=102&oid=047&aid=0002249808)
+- 발표자료 : [Link](https://yonseijaewon.github.io/)
+- 어플리케이션 : [shiny](https://yonseitour.shinyapps.io/shiny_app/)
 
 
 
