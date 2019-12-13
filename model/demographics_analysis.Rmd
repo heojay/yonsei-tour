@@ -1,122 +1,64 @@
 ---
-title: "demographics_analysis"
+layout: page
+title: "Final Report"
 author: "Lee"
-date: '2019 11 15 '
-output: html_document
+date: "`r Sys.Date()`"
+output:
+  html_document: 
+    toc: yes
+    toc_float: true
+    highlight: tango
+    code_folding: show
+    number_section: true
+    self_contained: true
+    lib_dir: gapminder
 editor_options: 
   chunk_output_type: inline
 ---
+
+# Modeling
 
 ```{r, warning=FALSE, message=FALSE}
 library(tidyverse)
 ```
 
-# Preprocess
+## Import Data 
 
 ```{r}
-df <- read.csv('preprocessed.csv')
-
-# top 40 관광지만 demographic analysis를 진행하고 나머지는 피팅되고 난 뒤에 모델에 얹을 예정
-temp <- df['만족방문지'] %>% 
-    group_by(만족방문지) %>%
-    summarize(freq=n()) %>%
-    top_n(40) %>%
-    arrange(desc(freq)) %>%
-    pull(만족방문지) %>%
-    as.character()
-
-
-df <- df[df$만족방문지 %in% temp,]
-df$만족방문지 <- as.factor(as.character(df$만족방문지))
-
-
-#여행이 매우 만족한 경우가 아니라면 제거하자. 음의 정보도 충분히 유의하나 일단 보류
-
-df <- df %>% filter(만족도=='매우만족')
-
-# 국적 기타 제거
-df <- df %>% filter(국적!='기타')
+df <- read.csv('./preprocessed.csv') %>% select(-X)
+temp_corr <- colnames(df)
 ```
 
-방문지 인덱스를 만들자.
-
-```{r}
-df['category'] <- as.numeric(factor(df$만족방문지, level=temp))
-df[df['category'] == 37, 'category'] <- 27
-```
-
-안 쓸 것 같은 변수들 제거
-```{r}
-df <- df %>% select(-X, -starts_with('참여'), -starts_with('방문'))
-```
-
-
-```{r}
-df <- df %>% mutate(목적 = paste0('(', 목적_1위, ', ', 목적_2위, ', ', 목적_3위, ')'))
-```
-
-## 살리는 목적
-
-**word frequency로 해석한 주제 (LDA.ipynb)**
-
-1번 (도시 - 조용한)
-
-2번 (도시 - 번화가의)
-
-3번 (역사 - 조용한)
-
-4번 (자연의 자연 - 조용한)
-
-인데 위에 근거하여 여행 목적 중에서 살릴 수 있는 목적과 살릴수 없는 목적이 나뉘어진다.
-
-1. 살리는 목적
-
-> "역사/문화 유적 탐방", "K-POP", "쇼핑", "유흥/놀이 시설",  "자연 풍경 감상", "치료 및 미용 서비스", "템플스테이 태권도 등 한국 전통 문화 체험", "패션, 유행 등 세련된 현대 문화"      
-
-2. 못 살리는 목적
-
-> "경제적인 여행비용", "기타", "기후/ 뚜렷한 사계절", "레저 및 스포츠 활동", "숙박/ 교통 등 관광 편리성 및 안전성", "자국과의 이동 거리", "친구, 친지 방문", "휴가 시간"
-
-```{r}
-df['목적_역사'] <- ifelse(grepl('역사' , df$목적), 1, 0)
-df['목적_KPOP'] <- ifelse(grepl('POP' , df$목적), 1, 0)
-df['목적_자연'] <- ifelse(grepl('자연' , df$목적), 1, 0)
-df['목적_미용'] <- ifelse(grepl('미용' , df$목적), 1, 0)
-df['목적_전통'] <- ifelse(grepl('전통' , df$목적), 1, 0)
-df['목적_패션'] <- ifelse(grepl('패션' , df$목적), 1, 0)
-df['목적_쇼핑'] <- ifelse(grepl('쇼핑' , df$목적), 1, 0)
-df['목적_유흥'] <- ifelse(grepl('유흥' , df$목적), 1, 0)
-
-# **살릴 수 있는 방문 목적**을 기입하지 않은 사람은 제거하자.
-temp <- df %>% select(starts_with('목적_'), -ends_with('위'))
-temp <- apply(temp,1,sum)!=0
-df <- df[temp, ]
-```
-
-전처리는 이것으로 끝났고 LDA results를 join 하자.
+관광설문조사 데이터와 트립어드바이저 리뷰를 통해 얻어낸 LDA results를 join시키자.
 
 ```{r}
 lda_results <- read.csv('LDA_results.csv') %>% select(-X)
 df <- left_join(df, lda_results, by='category')
 ```
 
-# Modeling - Intro
+## Modeling - Intro
 
 ```{r, warning=FALSE, message=FALSE}
 library(corrplot)
-test <- df %>% select('목적_역사','목적_KPOP','목적_자연','목적_미용','목적_전통','목적_패션',
-                      '목적_쇼핑','목적_유흥')
-test %>% cor %>% corrplot
+test_corr <- df %>% select(temp_corr) %>% select(-category, -만족방문지)
+test_corr <- as.data.frame(lapply(test_corr, as.integer))
+test_corr %>% cor %>% corrplot
 ```
 
-다변수 회귀 계수 해석 안전하리라 예상
+우리는 다중선형회귀 모형을 사용할 예정인 만큼 상관계수를 한번 보도록 하자.
+
+각 변수들의 상관계수가 작은 편이기 때문에 **다변수 회귀 계수 해석**이 **안전**하다. (음과 양이 바뀌는 상황이 거의 없기 때문에)
 
 ```{r}
-model1 <- lm(data=test, df$topic1 ~ .)
-model2 <- lm(data=test, df$topic2 ~ .)
-model3 <- lm(data=test, df$topic3 ~ .)
-model4 <- lm(data=test, df$topic4 ~ .)
+test1 <- df %>% select(starts_with('목적_'))
+
+model1 <- lm(data=test1, df$topic1 ~ .)
+model2 <- lm(data=test1, df$topic2 ~ .)
+model3 <- lm(data=test1, df$topic3 ~ .)
+model4 <- lm(data=test1, df$topic4 ~ .)
 ```
+
+우선, **AIC**을 기준으로 **모델셀렉션(변수선택)**을 하여 토픽을 설명하는데 필요한 방문고려요인을 찾아보도록하자.  
 
 ```{r}
 stepmodel1 <- MASS::stepAIC(model1, direction = "both",trace = FALSE)
@@ -125,52 +67,84 @@ stepmodel3 <- MASS::stepAIC(model3, direction = "both",trace = FALSE)
 stepmodel4 <- MASS::stepAIC(model4, direction = "both",trace = FALSE)
 ```
 
-```{r}
-summary(stepmodel1)
-```
+### (도시 - 조용한) ~ 방문고려요인
 
-**1번 (도시 - 조용한)**
+**유의한 방문고려요인들**
 
 > 양 : 자연, 유흥
 >
 > 음 : 쇼핑
 
 ```{r}
-summary(stepmodel2)
+#summary(stepmodel1)
+significant <- broom::tidy(stepmodel1) %>%
+    filter(abs(statistic) > 1.9) %>%
+    filter(grepl('목적',term)) %>% 
+    pull(term)
+
+jtools::plot_summs(stepmodel1, scale = TRUE, plot.distributions = TRUE, inner_ci_level = .9,
+                   coefs = significant)
 ```
 
-**2번 (도시 - 번화가의)**
+### (도시 - 번화가의) ~ 방문고려요인
+
+**유의한 방문고려요인들**
 
 > 양 : K-POP, 미용, 패션, 쇼핑
 >
 > 음 : 역사, 자연
 
 ```{r}
-summary(stepmodel3)
+#summary(stepmodel2)
+significant <- broom::tidy(stepmodel2) %>%
+    filter(abs(statistic) > 1.9) %>%
+    filter(grepl('목적',term)) %>% 
+    pull(term)
+
+jtools::plot_summs(stepmodel2, scale = TRUE, plot.distributions = TRUE, inner_ci_level = .9)
 ```
 
-**3번 (역사 - 조용한)**
+### (역사 - 조용한) ~ 방문고려요인
+
+**유의한 방문고려요인들**
 
 > 양 : 역사, 전통
 >
 > 음 : K-POP, 패션, 쇼핑, 유흥
 
 ```{r}
-summary(stepmodel4)
+#summary(stepmodel3)
+significant <- broom::tidy(stepmodel3) %>%
+    filter(abs(statistic) > 1.9) %>%
+    filter(grepl('목적',term)) %>% 
+    pull(term)
+
+jtools::plot_summs(stepmodel3, scale = TRUE, plot.distributions = TRUE, inner_ci_level = .9)
 ```
 
-**4번 (자연의 자연 - 조용한)**
+### (자연 - 조용한) ~ 방문고려요인
+
+**유의한 방문고려요인들**
 
 > 양 : 자연
 >
 > 음 : 역사, K-POP, 전통, 쇼핑, 유흥
 
+```{r}
+#summary(stepmodel4)
+significant <- broom::tidy(stepmodel4) %>%
+    filter(abs(statistic) > 1.9) %>%
+    filter(grepl('목적',term)) %>% 
+    pull(term)
 
-# Modeling - Midtro
+jtools::plot_summs(stepmodel4, scale = TRUE, plot.distributions = TRUE, inner_ci_level = .9)
+```
 
-여행지 추천에서 당연히 방문 목적은 당연히 고려를 해야된다.
+## Modeling - Midtro
 
-하지만 인구 통계정보를 고려하는 것이 맞을까? 라는 질문에서 시작한다.
+당연히 여행지 추천에서 당연히 방문 목적은 당연히 고려를 해야된다.
+
+하지만 **과연 인구 통계정보를 고려하는 것이 맞을까?** 라는 질문에서 Midtro를 시작한다.
 
 ```{r}
 demographic <- c('국적', '성별', '나이')
@@ -182,24 +156,52 @@ pca <- prcomp(test_demographic %>% select(starts_with('topic')), scale. = FALSE)
 summary(pca)
 ```
 
-pca 2개의 주성분 만으로 88%의 분산이 설명되므로 2개로 시각화를 진행하자.
+우선 PCA 2개의 주성분 만으로 88%의 분산이 설명되므로 2개로 간단하게 시각화를 진행하자.
+
+### PCA를 활용한 인구통계별 시각화
 
 ```{r}
 test_demographic$pc1 <- pca$x[,1]
 test_demographic$pc2 <- pca$x[,2]
 
 ggplot(test_demographic, aes(pc1, pc2)) +
-    geom_bin2d() +
-    facet_wrap(.~국적) +
-    theme_bw()
+    stat_density_2d(aes(fill = stat(level)), geom = "polygon") +
+    facet_wrap(.~국적)  + scale_fill_viridis_c() +
+    theme_bw() +
+    labs(title='국가 별 방문 선호도 (Using PCA)') +
+    theme(plot.title = element_text(face = "bold", size = 12, hjust=0.5),
+          axis.ticks = element_blank(), 
+          panel.grid.minor = element_blank())
 ```
 
-## Q : 국적은 여행 선호도에 영향이 있을까?
-
-방문 목적을 공변량으로 둔 다음에 선형회귀를 진행해보자.
+```{r}
+ggplot(test_demographic, aes(pc1, pc2)) +
+    stat_density_2d(aes(fill = stat(level)), geom = "polygon") +
+    facet_wrap(.~성별)  + scale_fill_viridis_c() +
+    theme_bw() +
+    labs(title='성 별 방문 선호도 (Using PCA)') +
+    theme(plot.title = element_text(face = "bold", size = 12, hjust=0.5),
+          axis.ticks = element_blank(), 
+          panel.grid.minor = element_blank())
+```
 
 ```{r}
-test2 <- test
+ggplot(test_demographic, aes(pc1, pc2)) +
+    stat_density_2d(aes(fill = stat(level)), geom = "polygon") +
+    facet_wrap(.~나이)  + scale_fill_viridis_c() +
+    theme_bw() +
+    labs(title='연령 별 방문 선호도 (Using PCA)') +
+    theme(plot.title = element_text(face = "bold", size = 12, hjust=0.5),
+          axis.ticks = element_blank(), 
+          panel.grid.minor = element_blank())
+```
+
+### Q : 국적은 여행 선호도에 영향이 있을까?
+
+> 방문 목적을 공변량처럼 생각하여 변수에 포함한 다음에 둔 다음에 선형회귀를 진행해보자.
+
+```{r}
+test2 <- test1
 test2['국적'] <- df$국적
 model1_2 <- update(model1, ~.+국적, data=test2)
 model2_2 <- update(model2, ~.+국적, data=test2)
@@ -212,28 +214,73 @@ stepmodel3_2 <- MASS::stepAIC(model3_2, direction = "both",trace = FALSE)
 stepmodel4_2 <- MASS::stepAIC(model4_2, direction = "both",trace = FALSE)
 ```
 
-```{r}
-summary(stepmodel1_2)
-```
+#### (도시 - 조용한)|방문목적 ~ 국적(대만 기준)
 
-
-```{r}
-summary(stepmodel2_2)
-```
+국적 변수는 모델셀렉션에서 선택이 되었고 동남아 국적의 경우 **(도시 - 조용한)**을 선호한다.
 
 ```{r}
-summary(stepmodel3_2)
+#summary(stepmodel1_2)
+significant <- broom::tidy(stepmodel1_2) %>%
+    filter(abs(statistic) > 1.9) %>%
+    filter(grepl('국적',term)) %>% 
+    pull(term)
+
+jtools::plot_summs(stepmodel1_2, scale = TRUE, plot.distributions = TRUE, inner_ci_level = .9,
+                   coefs = significant)
 ```
+
+#### (도시 - 번화가의)|방문목적 ~ 국적(대만 기준)
+
+국적 변수는 모델셀렉션에서 선택이 되었고 베트남 국적을 제외하고 **(도시 - 번화가의)**을 선호한다.
 
 ```{r}
-summary(stepmodel4_2)
+#summary(stepmodel2_2)
+significant <- broom::tidy(stepmodel2_2) %>%
+    filter(abs(statistic) > 1.9) %>%
+    filter(grepl('국적',term)) %>% 
+    pull(term)
+
+jtools::plot_summs(stepmodel2_2, scale = TRUE, plot.distributions = TRUE, inner_ci_level = .9,
+                   coefs = significant)
 ```
 
-AIC를 이용한 모델 셀렉션에서 선택된 것에 기반하여 국적 변수는 유의하다고 볼 수 있다.
+#### (역사 - 조용한)|방문목적 ~ 국적(대만 기준)
 
-## Q : 성별은 여행 선호도에 영향이 있을까?
+국적 변수는 모델셀렉션에서 선택이 되었고 서양 국적은 **(역사 - 조용한)**을 선호한다.
 
-방문목적, 국적을 공변량으로 둔 다음에 선형회귀를 진행해보자.
+```{r}
+#summary(stepmodel3_2)
+significant <- broom::tidy(stepmodel3_2) %>%
+    filter(abs(statistic) > 1.9) %>%
+    filter(grepl('국적',term)) %>% 
+    pull(term)
+
+jtools::plot_summs(stepmodel3_2, scale = TRUE, plot.distributions = TRUE, inner_ci_level = .9,
+                   coefs = significant)
+```
+
+#### (자연 - 조용한)|방문목적 ~ 국적(대만 기준)
+
+국적 변수는 모델셀렉션에서 선택이 되었고 일본과 말레이시아가 **(자연 - 조용한)**을 선호한다.
+
+```{r}
+#summary(stepmodel4_2)
+significant <- broom::tidy(stepmodel4_2) %>%
+    filter(abs(statistic) > 1.9) %>%
+    filter(grepl('국적',term)) %>% 
+    pull(term)
+
+jtools::plot_summs(stepmodel4_2, scale = TRUE, plot.distributions = TRUE, inner_ci_level = .9,
+                   coefs = significant)
+```
+
+**Answer**
+
+> AIC를 이용한 모델 셀렉션에서 선택된 것에 기반하여 **국적 변수**는 선택되었다.
+
+### Q : 성별은 여행 선호도에 영향이 있을까?
+
+> 방문목적, 국적을 공변량처럼 생각하여 변수에 다 포함한 다음에 선형회귀를 진행해보자.
 
 ```{r}
 test3 <- test2
@@ -251,38 +298,48 @@ stepmodel3_3 <- MASS::stepAIC(model3_3, direction = "both",trace = FALSE)
 stepmodel4_3 <- MASS::stepAIC(model4_3, direction = "both",trace = FALSE)
 ```
 
-```{r}
-summary(stepmodel1_3)
-```
+#### (도시 - 조용한)|방문목적, 국적 ~ 성별
 
 ```{r}
-summary(stepmodel2_3)
+if ( !any(grepl('성별', broom::tidy(stepmodel1_3)$term)) ){
+    print('토픽1(도시 - 조용한) : 성별이 모델에 포함되지 않았다!')
+}
 ```
+
+#### (도시 - 번화가의)|방문목적, 국적 ~ 성별
+
 
 ```{r}
-summary(stepmodel3_3)
+if ( !any(grepl('성별', broom::tidy(stepmodel2_3)$term)) ){
+    print('토픽2(도시 - 번화가의) : 성별이 모델에 포함되지 않았다!')
+}
 ```
+
+#### (역사 - 조용한)|방문목적, 국적 ~ 성별
+
 
 ```{r}
-summary(stepmodel4_3)
+if ( !any(grepl('성별', broom::tidy(stepmodel3_3)$term)) ){
+    print('토픽3(역사 - 조용한) : 성별이 모델에 포함되지 않았다!')
+}
 ```
 
-성별은 담기지 않는다. 성별을 아는 것은 유의한 정보일 수 있으나 
+#### (자연 - 조용한)|방문목적, 국적 ~ 성별
 
-**방문 목적을 아는 상황**에선 의미가 없어진다고 볼 수 있다.
 
 ```{r}
-df %>% group_by(성별) %>% 
-    select(starts_with('목적_'), -ends_with('위')) %>%
-    summarise_all(funs(mean)) %>% 
-    gather(key='목적', value='ratio', starts_with('목적')) %>%
-    ggplot(aes(x=목적, y=ratio, fill=성별)) +
-    geom_bar(stat='identity', position='dodge')
+if ( !any(grepl('성별', broom::tidy(stepmodel4_3)$term)) ){
+    print('토픽4(자연 - 조용한) : 성별이 모델에 포함되지 않았다!')
+}
 ```
 
-## Q : 나이는 여행 선호도에 영향이 있을까?
+**Answer**
 
-방문목적, 국적을 공변량으로 둔 다음에 선형회귀를 진행해보자.
+> AIC를 이용한 모델 셀렉션에서 성별은 선택되지 않는다. 성별만 아는 것은 유의한 정보일 수 있으나 **방문 목적, 국가를 아는 상황**에선 의미가 없다고 볼 수 있다.
+
+### Q : 나이는 여행 선호도에 영향이 있을까?
+
+> 방문목적, 국적을 공변량처럼 생각하여 변수에 다 포함한 다음에 선형회귀를 진행해보자.
 
 ```{r}
 test4 <- test2
@@ -300,29 +357,85 @@ stepmodel3_4 <- MASS::stepAIC(model3_4, direction = "both",trace = FALSE)
 stepmodel4_4 <- MASS::stepAIC(model4_4, direction = "both",trace = FALSE)
 ```
 
-```{r}
-summary(stepmodel1_4)
-```
-
+#### (도시 - 조용한)|방문목적, 국적 ~ 나이(10대기준)
 
 ```{r}
-summary(stepmodel2_4)
+#summary(stepmodel1_4)
+
+if ( !any(grepl('나이', broom::tidy(stepmodel1_4)$term)) ){
+    print('토픽1(도시 - 조용한) : 나이가 모델에 포함되지 않았다!')
+}else{
+    significant <- broom::tidy(stepmodel1_4) %>%
+    filter(abs(statistic) > 1.9) %>%
+    filter(grepl('나이',term)) %>% 
+    pull(term)
+
+    jtools::plot_summs(stepmodel1_4, scale = TRUE, plot.distributions = TRUE, 
+                       inner_ci_level = .9, coefs = significant)
+}
+
 ```
 
+#### (도시 - 번화가의)|방문목적, 국적 ~ 나이(10대기준)
+
+나이 변수는 **(도시 - 번화가의)** 모델셀렉션에서 선택이 되었고 30대부터는 확실히 덜 선호된다.
 
 ```{r}
-summary(stepmodel3_4)
+# summary(stepmodel2_4)
+if ( !any(grepl('나이', broom::tidy(stepmodel2_4)$term)) ){
+    print('토픽2(도시 - 번화가의) : 나이가 모델에 포함되지 않았다!')
+}else{
+    significant <- broom::tidy(stepmodel2_4) %>%
+    filter(abs(statistic) > 1.9) %>%
+    filter(grepl('나이',term)) %>% 
+    pull(term)
+
+    jtools::plot_summs(stepmodel2_4, scale = TRUE, plot.distributions = TRUE, 
+                       inner_ci_level = .9, coefs = significant)
+}
 ```
 
+#### (역사 - 조용한)|방문목적, 국적 ~ 나이(10대기준)
+
+나이 변수는 **(역사 - 번화가의)** 모델셀렉션에서 선택이 되었고 40대부터는 확실히 선호된다.
 
 ```{r}
-summary(stepmodel4_4)
+# summary(stepmodel3_4)
+if ( !any(grepl('나이', broom::tidy(stepmodel3_4)$term)) ){
+    print('토픽3(역사 - 조용한) : 나이가 모델에 포함되지 않았다!')
+}else{
+    significant <- broom::tidy(stepmodel3_4) %>%
+    filter(abs(statistic) > 1.9) %>%
+    filter(grepl('나이',term)) %>% 
+    pull(term)
+
+    jtools::plot_summs(stepmodel3_4, scale = TRUE, plot.distributions = TRUE, 
+                       inner_ci_level = .9, coefs = significant)
+}
 ```
 
-토픽 2와 3에서 나이라는 정보는 유의하다.
+#### (자연 - 조용한)|방문목적, 국적 ~ 나이(10대기준)
 
+```{r}
+# summary(stepmodel4_4)
+if ( !any(grepl('나이', broom::tidy(stepmodel4_4)$term)) ){
+    print('토픽4(자연 - 조용한) : 나이가 모델에 포함되지 않았다!')
+}else{
+    significant <- broom::tidy(stepmodel4_4) %>%
+    filter(abs(statistic) > 1.9) %>%
+    filter(grepl('나이',term)) %>% 
+    pull(term)
 
-# Modeling - outro
+    jtools::plot_summs(stepmodel4_4, scale = TRUE, plot.distributions = TRUE, 
+                       inner_ci_level = .9, coefs = significant)
+}
+```
+
+**Answer**
+
+> AIC를 이용한 모델 셀렉션에서 **나이 변수**는 부분적으로 선택되었다.
+
+## Modeling - outro
 
 ```{r}
 yhat1 <- predict(stepmodel1_4, newdata = df)
@@ -333,25 +446,50 @@ yhat4 <- predict(stepmodel4_4, newdata = df)
 estimated_df <- data.frame(topic1 = yhat1, topic2 = yhat2, topic3 = yhat3, topic4 = yhat4)
 ```
 
-```{r}
-ggplot(estimated_df, aes(x=topic2, color='black')) + stat_density(geom='line') +
+```{r, warning=FALSE, message=FALSE}
+t1 <- ggplot(estimated_df, aes(x=topic1, color='black')) + stat_density(geom='line') +
     geom_density(data=df, aes(color='red')) +
     scale_colour_manual(name = 'Type',
-                        values =c('black'='black','red'='red'), labels = c('예측','실제'))+
-    labs(title='예측토픽과 실제토픽') +
-    theme(plot.title = element_text(face = "bold", size = 20, hjust=0.5))
+                        values =c('black'='black','red'='red'), labels = c('예측','실제'))
+
+t2 <- ggplot(estimated_df, aes(x=topic2, color='black')) + stat_density(geom='line') +
+    geom_density(data=df, aes(color='red')) +
+    scale_colour_manual(name = 'Type',
+                        values =c('black'='black','red'='red'), labels = c('예측','실제'))
+
+t3 <- ggplot(estimated_df, aes(x=topic3, color='black')) + stat_density(geom='line') +
+    geom_density(data=df, aes(color='red')) +
+    scale_colour_manual(name = 'Type',
+                        values =c('black'='black','red'='red'), labels = c('예측','실제'))
+
+t4 <- ggplot(estimated_df, aes(x=topic4, color='black')) + stat_density(geom='line') +
+    geom_density(data=df, aes(color='red')) +
+    scale_colour_manual(name = 'Type',
+                        values =c('black'='black','red'='red'), labels = c('예측','실제'))
+
+ggpubr::ggarrange(t1, t2, t3, t4 + ggpubr::rremove("x.text"), 
+          labels = c("T1", "T2", "T3", 'T4'),
+          ncol = 2, nrow = 2)
 ```
 
-문제점
+* 모델의 문제점
 
-> 1. 선형회귀 모형의 설명력이 너무 떨어져서 전체적인 트렌드를 놓친다.
-> 2. 토픽이 저렇게 어중간한 위치에 다 모이면 추천도 애매해지게 된다.
+    > 1.우리 모형이 트렌드를 못따라간다.
+    >
+    > 2. 검은색(estimated topic)에서 빨간색(actual value)으로 가는 적절한 변환을 못찾겠다.
+    
+* 원인 분석
 
-그리고 검은색(estimated topic)에서 빨간색(actual value)으로 가는 적절한 변환을 못찾겠다.
+    > 1. 방문목적과 인구통계를 활용한 선형회귀 모형의 설명력이 떨어져서 MSE를 낮추기 위한 평균부근으로 예측을 하게 된다.
+    > 
+    > 2. 토픽이 저렇게 어중간한 위치에 다 모이면 추천도 애매해지게 된다.
 
-그러므로 **rank**를 고려해서 변환하도록 하자.
+* 해결책
+
+    > 그러므로 **rank**를 고려해서 변환하도록 하자.
 
 ```{r}
+# 참고로 랭크 동률이 발생하면 맨 처음 것의 순위가 가장 낮음
 ranking <- df %>% 
     select(topic1, topic2, topic3, topic4) %>% 
     mutate(topic1_rank = rank(topic1, ties.method = 'first'),
@@ -359,8 +497,6 @@ ranking <- df %>%
            topic3_rank = rank(topic3, ties.method = 'first'),
            topic4_rank = rank(topic4, ties.method = 'first'))
 ```
-
-> 타이가 발생하면 맨 처음 것의 순위가 가장 낮음
 
 ```{r}
 ranking_estimated <- estimated_df %>% 
@@ -383,69 +519,56 @@ r_estimated_df <- data.frame(topic1 = temp1,
                              topic4 = temp4)
 ```
 
-```{r}
-ggplot(r_estimated_df, aes(x=topic1)) + geom_density(color='blue', size=2) +
-    geom_density(data=df, color='red')
+```{r, warning=FALSE, message=FALSE}
+t1 <- ggplot(r_estimated_df, aes(x=topic1, color='blue')) + stat_density(geom='line', size=2) +
+    geom_density(data=df, aes(color='red')) +
+    scale_colour_manual(name = 'Type',
+                        values =c('blue'='blue','red'='red'), labels = c('예측','실제'))
+
+t2 <- ggplot(r_estimated_df, aes(x=topic2, color='blue')) + stat_density(geom='line', size=2) +
+    geom_density(data=df, aes(color='red')) +
+    scale_colour_manual(name = 'Type',
+                        values =c('blue'='blue','red'='red'), labels = c('예측','실제'))
+t3 <- ggplot(r_estimated_df, aes(x=topic3, color='blue')) + stat_density(geom='line', size=2) +
+    geom_density(data=df, aes(color='red')) +
+    scale_colour_manual(name = 'Type',
+                        values =c('blue'='blue','red'='red'), labels = c('예측','실제'))
+t4 <- ggplot(r_estimated_df, aes(x=topic4, color='blue')) + stat_density(geom='line', size=2) +
+    geom_density(data=df, aes(color='red')) +
+    scale_colour_manual(name = 'Type',
+                        values =c('blue'='blue','red'='red'), labels = c('예측','실제'))
+
+
+
+ggpubr::ggarrange(t1, t2, t3, t4 + ggpubr::rremove("x.text"), 
+          labels = c("T1", "T2", "T3", 'T4'),
+          ncol = 2, nrow = 2)
 ```
 
-이 변환의 문제점은 토픽의 합이 1이 안되는 경우가 있다는 것이다.
+* 또 다른 문제점
 
-> **단순 유클리드 거리를 안쓰게 된 이유** 에서 해결.
+    > 이 변환의 문제점은 토픽의 합이 1이 안되는 경우가 꽤 있다는 것이다.
+    > 
+    > 마지막 파트 **단순 유클리드 거리를 안쓰게 된 이유** 에서 해결하게 된다.
 
 ```{r}
 temp_df <- data.frame(sum_topic=apply(r_estimated_df, 1, sum))
 ggplot(temp_df ,aes(x=sum_topic)) + geom_density()
 ```
 
-방문목적, 인구통계 정보를 이용하여 만든 추천 토픽이 실제 방문지 토픽과 얼마나 다를 지 그림으로 그려보자. 
+## Pipeline
 
-```{r}
-temp <- predict(pca, newdata = r_estimated_df)
-temp_viz <- r_estimated_df
-temp_viz$realpc1 <- pca$x[,1]
-temp_viz$realpc2 <- pca$x[,2]
-temp_viz$estpc1 <- temp[,1]
-temp_viz$estpc2 <- temp[,2]
-```
+* 목표
 
-**실제 방문지 토픽** VS **Estimated Topic** | 방문목적, 인구통계 정보
+    > 예측토픽에서 최근접 3가지의 여행지를 골라서 추천해주자.
 
-```{r}
-original <-ggplot(temp_viz) +
-    geom_bin2d(aes(x=realpc1, y=realpc2)) + xlim(c(-0.5,1)) + ylim(c(-1, 0.55)) +
-    guides(fill=FALSE) +
-    labs(title='topic', x='pc1', y='pc2')
+Given {(40 - 1) 범주}로 묶은 관광지 리뷰로 학습한 LDA를 이용하여, {162개의 관광지}의 토픽을 뽑은 상황이다.
 
-estimated_plot <- ggplot(temp_viz) +
-    geom_bin2d(aes(x=estpc1, y=estpc2)) +
-    guides(fill=FALSE) +
-    labs(title='estimated topic using info', x='pc1', y='pc2')
+리니어 모델 피팅할 때는 설문조사 데이터에서 y인 **만족 방문지**가 **범주**로 묶여있어서 {(40 - 1) 범주}로 피팅하였는데
 
-cowplot::plot_grid(original, estimated_plot)
-```
+이미 선형회귀 모형을 피팅한 다음엔, 
 
-이제 예상되는 토픽에 대해서 최근접 3개의 관광지를 추천해보자.
-
-```{r}
-eucl <- function(vector){
-    sum(vector^2)
-}
-
-topic_location <- lda_results %>% select(topic1, topic2, topic3, topic4)
-
-recoomend3 <- order(apply(topic_location - as.numeric(r_estimated_df[1,]), 1, eucl)) <= 3
-lda_results[recoomend3,]
-```
-
-# Pipeline
-
-Given (40 - 1) 범주로 묶은 관광지 리뷰로 학습한 LDA를 이용하여, {162개의 관광지}의 토픽을 뽑은 상황이다.
-
-리니어 모델 피팅할 때는 설문조사 데이터에서 y인 만족 방문지가 범주로 묶여있어서 162개를 40-1개로 뭉쳤는데
-
-이미 모델(`demographics_analysis.Rmd`)은 만든 다음엔 X변수인 국적, 목적, 연령 변수만 들어오면 관심 토픽을 예측을 할 수 있기에
-
-{162개의 관광지}의 토픽을 뽑아서 추천을 하도록 하자.
+X변수인 국적, 목적, 연령 변수만 들어오면 관심 토픽을 예측할 수 있기 때문에, {162개의 관광지}의 토픽에서 가장 가까운 3개를 뽑아서 추천을 하도록 하자.
 
 ```{r}
 lda_results2 <- read.csv('LDA_results2.csv') %>% select(-X)
@@ -455,9 +578,9 @@ lda_results2 <- read.csv('LDA_results2.csv') %>% select(-X)
 
 일단 방문 고려요인, 인구통계정보가 들어온다.
 
-그 다음 회귀로 예측을 하고 랭크 변환을 한다.
+그 다음 이미 학습된 선형회귀모형으로 예측을 하고 랭크 변환을 한다.
 
-그 다음 거기에 최근접 3개의 여행지를 추천한다.
+그 다음 예측된 토픽에서 최근접 3개의 여행지를 추천한다.
 
 목적은 한번에 여러개 받지 말고 하나씩 나눠서 받도록 하자!
 
@@ -561,7 +684,7 @@ recommend <- lda_results2[recoomend3,c('attraction')]
 write.csv(recommend, 'Three_recommendation.csv')
 ```
 
-# 단순 유클리드 거리를 안쓰게 된 이유
+**단순 유클리드 거리를 안쓰게 된 이유**
 
 실제 토픽은 4-심플렉스에 갇혀있고 Estimated 토픽은 심플렉스 바깥에 있기 때문에 토픽의 비중과 관련없는 것들이 뽑히게 된다.
 
@@ -584,6 +707,3 @@ topic_location <- lda_results2 %>% select(topic1, topic2, topic3, topic4)
 recoomend3 <- order(apply(topic_location - as.numeric(result), 1, eucl)) <= 3
 lda_results2[recoomend3,] %>% select(topic1, topic2, topic3, topic4)
 ```
-
-
-
