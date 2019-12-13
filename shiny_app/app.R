@@ -19,10 +19,9 @@ sex_list <- c("Male","Female")
 top_list <- c("Uptown","Downtown","Historic","Natural")
 
 obj_list_in <- c('역사','K-POP','자연','미용','전통','패션','쇼핑','유흥')
-con_list_in <- c("대만","독일","러시아","말레이시아","몽골","미국","베트남","싱가포르","영국","인도","인도네시아",
-              "일본","중국","중동","캐나다","태국","프랑스","필리핀","호주","홍콩")
-age_list_in <- c("15-20세", "21-30세", "31-40세", "41-50세", "51-60세", "61세이상")
-sex_list_in <- c("남","여")
+con_list_in <- c(1:20)
+age_list_in <- c(1:6)
+sex_list_in <- c(1,2)
 top_list_in <- c(1,2,3,4)
 
 ui <- fluidPage(
@@ -90,18 +89,16 @@ server <- function(input, output) {
     user_detail <- 
       isolate(
         unique(c(obj_list_in[match(input$input_obj, obj_list)],
-                 age_list_in[match(input$input_age, age_list)],
-                 con_list_in[match(input$input_con, con_list)],
-                 sex_list_in[match(input$input_sex, sex_list)],
-                 top_list_in[match(input$input_top, top_list)]))
+                 match(input$input_age, age_list),
+                 match(input$input_con, con_list),
+                 match(input$input_sex, sex_list),
+                 match(input$input_top, top_list)))
       )
-    
+    print(input$input_sex, sex_list)
     # Run model
     if(input$submit != 0){
-      userdata <- filter(target_list, 목적 == user_detail[1], 나이 == user_detail[2], 국적 == user_detail[3])
-      #userdata <- filter(target_list, 목적 == user_detail[1], 나이 == user_detail[2], 국적 == user_detail[3], 성별 == user_detail[4], 토픽 == user_detail[5])
+      userdata <- filter(target_list, 목적 == user_detail[1], 나이 == user_detail[2], 국적 == user_detail[3], 성별 == user_detail[4], HT == user_detail[5])
       result <- rbind(lda_list[userdata[['recom1']],],lda_list[userdata[['recom2']],],lda_list[userdata[['recom3']],])
-      #result <- rbind(lda_list[userdata[['recom1']],],lda_list[userdata[['recom2']],],lda_list[userdata[['recom3']],],lda_list[userdata[['recom4']],],lda_list[userdata[['recom5']],])
       result[,c('attraction')]
     }
   }
@@ -124,10 +121,8 @@ server <- function(input, output) {
     
     # Run model
     if(input$submit != 0){
-      userdata <- filter(target_list, 목적 == user_detail[1], 나이 == user_detail[2], 국적 == user_detail[3])
-      #userdata <- filter(target_list, 목적 == user_detail[1], 나이 == user_detail[2], 국적 == user_detail[3], 성별 == user_detail[4], 토픽 == user_detail[5])
+      userdata <- filter(target_list, 목적 == user_detail[1], 나이 == user_detail[2], 국적 == user_detail[3], 성별 == user_detail[4], HT == user_detail[5])
       result <- rbind(lda_list[userdata[['recom1']],],lda_list[userdata[['recom2']],],lda_list[userdata[['recom3']],])
-      #result <- rbind(lda_list[userdata[['recom1']],],lda_list[userdata[['recom2']],],lda_list[userdata[['recom3']],],lda_list[userdata[['recom4']],],lda_list[userdata[['recom5']],])
       attr_input <- result[,c('attraction')]
       
       leaflet(data = mapping[mapping$attraction %in% attr_input,]) %>%
@@ -153,8 +148,7 @@ server <- function(input, output) {
       )
     
     if (input$submit != 0){
-      userdata <- filter(target_list, 목적 == user_detail[1], 나이 == user_detail[2], 국적 == user_detail[3])
-      #userdata <- filter(target_list, 목적 == user_detail[1], 나이 == user_detail[2], 국적 == user_detail[3], 성별 == user_detail[4], 토픽 == user_detail[5])
+      userdata <- filter(target_list, 목적 == user_detail[1], 나이 == user_detail[2], 국적 == user_detail[3], 성별 == user_detail[4], HT == user_detail[5])
       place <- lda_list[userdata[['recom1']],'category']
       
       return(list(
@@ -190,8 +184,7 @@ server <- function(input, output) {
       )
     
     if (input$submit != 0){
-      userdata <- filter(target_list, 목적 == user_detail[1], 나이 == user_detail[2], 국적 == user_detail[3])
-      #userdata <- filter(target_list, 목적 == user_detail[1], 나이 == user_detail[2], 국적 == user_detail[3], 성별 == user_detail[4], 토픽 == user_detail[5])
+      userdata <- filter(target_list, 목적 == user_detail[1], 나이 == user_detail[2], 국적 == user_detail[3], 성별 == user_detail[4], HT == user_detail[5])
       place <- lda_list[userdata[['recom2']],'category']
       
       return(list(
@@ -225,8 +218,7 @@ server <- function(input, output) {
       )
     
     if (input$submit != 0){
-      userdata <- filter(target_list, 목적 == user_detail[1], 나이 == user_detail[2], 국적 == user_detail[3])
-      #userdata <- filter(target_list, 목적 == user_detail[1], 나이 == user_detail[2], 국적 == user_detail[3], 성별 == user_detail[4], 토픽 == user_detail[5])
+      userdata <- filter(target_list, 목적 == user_detail[1], 나이 == user_detail[2], 국적 == user_detail[3], 성별 == user_detail[4], HT == user_detail[5])
       place <- lda_list[userdata[['recom3']],'category']
       
       return(list(
