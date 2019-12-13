@@ -4,25 +4,21 @@ title: "Final Report"
 author: "Lee"
 date: "`r Sys.Date()`"
 output:
-  html_document: 
-    toc: yes
-    toc_float: true
+  html_document:
+    theme: sandstone 
     highlight: tango
-    code_folding: show
+    code_folding: hide
     number_section: true
     self_contained: true
-    lib_dir: gapminder
 editor_options: 
-  chunk_output_type: inline
+  chunk_output_type: console
 ---
-
-# Modeling
 
 ```{r, warning=FALSE, message=FALSE}
 library(tidyverse)
 ```
 
-## Import Data 
+# Import Data 
 
 ```{r}
 df <- read.csv('./preprocessed.csv') %>% select(-X) %>% filter()
@@ -37,11 +33,12 @@ df <- left_join(df, lda_results, by='category')
 prev_nrow <- nrow(df)
 ```
 
-애매한 토픽의 관광지는 제거하자.
+보다 정확한 추천을 위해서 토픽의 highest_ratio가 0.8이 안되는 애매한 토픽의 관광지는 제거하자.
 
 ```{r}
-df %>% filter(highest_ratio<0.8) %>% distinct(만족방문지)
-df <- df %>% filter(highest_ratio>=0.8)
+THRESHOLD_TOPIC = 0.8
+df %>% filter(highest_ratio<THRESHOLD_TOPIC) %>% distinct(만족방문지)
+df <- df %>% filter(highest_ratio>=THRESHOLD_TOPIC)
 now <- nrow(df)
 print(paste(prev_nrow, '에서', prev_nrow-now, '개의 설문조사 제거'))
 ```
@@ -52,9 +49,11 @@ df$highest_topic <- factor(df$highest_topic)
 ```
 
 
-## Modeling - Intro
+# Modeling - Intro
 
-모델을 와닿게 설명을 하면, *가장 높은 토픽이 뭔지는 알려줄게 한번 나머지들을 다 찾아봐라!* 이다.
+모델을 와닿게 설명을 하면, *가장 높은 토픽(1, 2, 3, 4)이 뭔지만 알려주면 (t1, t2, t3, t4)를 다 찾아서 당신이 좋아할만한 3가지 여행지를 추천해드립니다!* 이다.
+
+그리고 이를 위해, 선형회귀 모형 4개를 이용하여 t1~t4까지 채울 예정이다.
 
 ```{r, warning=FALSE, message=FALSE}
 library(corrplot)
@@ -66,10 +65,20 @@ test_corr %>% cor %>% corrplot
 
 우리는 다중선형회귀 모형을 사용할 예정인 만큼 상관계수를 한번 보도록 하자.
 
-각 변수들의 상관계수가 작은 편이기 때문에 **다변수 회귀 계수 해석**이 **안전**하다. (음과 양이 바뀌는 상황이 거의 없기 때문에)
+각 변수들의 상관계수가 작은 편이기 때문에 **다변수 회귀 계수 해석**이 **안전**하다.
 
+Analysis2에서는 부족한 설명력을 보완하기 위해 교호작용을 넣었고, 이로인해 설명변수가 134개로 늘어나 복잡해졌기에 인터랙션 텀에 대한 계수는 거의 해석하지 않겠다.
 
-```{r}
+앞으로 자주 언급하게 될 토픽에 대해서 표기를 정리하고 가겠다.
+
+> 토픽 1 : (도시 - 조용한)
+> 토픽 2 : (도시 - 번화가의)
+> 토픽 3 : (역사 - 조용한)
+> 토픽 4 : (자연 - 조용한)
+
+## 토픽 ~ 가장 높은 토픽, **방문고려요인**
+
+```{r, message=FALSE, error=FALSE}
 library("rlang")
 test1 <- df %>% select(starts_with('목적_'), highest_topic)
 
@@ -91,33 +100,96 @@ model3 <- eval(expr(lm(!!test1_model3, data=df)))
 model4 <- eval(expr(lm(!!test1_model4, data=df)))
 ```
 
-당연히 가장 높은게 2 혹은 3 혹은 4임을 아는 상황에서 토픽1을 예측할 때 낮게 배팅할 수 밖에 없다.
+
+
+간단하게 회귀 계수에 대해서 짚고 넘어가자. 이는 토픽 1을 예측하는 모형의 기울기 계수이다.
+
+당연히 가장 높은게 2 혹은 3 혹은 4임을 아는 상황에선, 토픽1을 예측할 때 낮게 배팅할 수 밖에 없음을 의미한다.
 
 ```{r}
 broom::tidy(model1)[3:5, c('term', 'estimate')]
 ```
 
 
-우선, **AIC**을 기준으로 **모델셀렉션(변수선택)**을 하여 토픽을 설명하는데 필요한 방문고려요인을 찾아보도록하자.  
-
 ```{r}
-# <- MASS::stepAIC(model1, direction = "both",trace = FALSE)
-#stepmodel2 <- MASS::stepAIC(model2, direction = "both",trace = FALSE)
-#stepmodel3 <- MASS::stepAIC(model3, direction = "both",trace = FALSE)
-#stepmodel4 <- MASS::stepAIC(model4, direction = "both",trace = FALSE)
+significant11 <- broom::tidy(model1) %>%
+    filter(abs(statistic) > 1.9) # 유의한 것 중에
+
+g1 <- significant11[nchar(significant11$term) < 10, ] %>% # 목적 변수만
+    ggplot(aes(factor(term), estimate)) +
+    geom_hline(yintercept = 0, size=3) +
+    geom_bar(stat='identity') +
+    labs(x='목적', title='조용한도시 ~ 방문고려요인') +
+    theme(plot.title = element_text(face = "bold", size = 15, hjust=0.5),
+          axis.ticks = element_blank(), 
+          axis.text.x = element_text(angle = -90, vjust = 1, hjust = 0),
+          panel.grid.minor = element_blank())
 ```
 
-## Modeling - Midtro
+```{r}
+significant21 <- broom::tidy(model2) %>%
+    filter(abs(statistic) > 1.9) # 유의한 것 중에
 
-### Q : 국적은 여행 선호도에 영향이 있을까?
 
-> 방문 목적을 공변량처럼 생각하여 변수에 포함한 다음에 둔 다음에 선형회귀를 진행해보자.
+g2 <- significant21[nchar(significant21$term) < 10, ] %>% # 목적 변수만
+    ggplot(aes(factor(term), estimate)) +
+    geom_hline(yintercept = 0, size=3) +
+    geom_bar(stat='identity') +
+    labs(x='목적', title='번화가도시 ~ 방문고려요인') +
+    theme(plot.title = element_text(face = "bold", size = 15, hjust=0.5),
+          axis.ticks = element_blank(), 
+          axis.text.x = element_text(angle = -90, vjust = 1, hjust = 0),
+          panel.grid.minor = element_blank())
+```
+
+
+```{r}
+significant31 <- broom::tidy(model3) %>%
+    filter(abs(statistic) > 1.9) # 유의한 것 중에
+
+g3 <- significant31[nchar(significant31$term) < 10, ] %>% # 목적 변수만
+    ggplot(aes(factor(term), estimate)) +
+    geom_hline(yintercept = 0, size=3) +
+    geom_bar(stat='identity') +
+    labs(x='목적', title='조용한역사 ~ 방문고려요인') +
+    theme(plot.title = element_text(face = "bold", size = 15, hjust=0.5),
+          axis.ticks = element_blank(), 
+          axis.text.x = element_text(angle = -90, vjust = 1, hjust = 0),
+          panel.grid.minor = element_blank())
+```
+
+
+```{r}
+significant41 <- broom::tidy(model4) %>%
+    filter(abs(statistic) > 1.9) # 유의한 것 중에
+
+g4 <- significant41[nchar(significant41$term) < 10, ] %>% # 목적 변수만
+    ggplot(aes(factor(term), estimate)) +
+    geom_hline(yintercept = 0, size=3) +
+    geom_bar(stat='identity') +
+    labs(x='목적', title='조용한자연 ~ 방문고려요인') +
+    theme(plot.title = element_text(face = "bold", size = 15, hjust=0.5),
+          axis.ticks = element_blank(), 
+          axis.text.x = element_text(angle = -90, vjust = 1, hjust = 0),
+          panel.grid.minor = element_blank())
+```
+
+```{r}
+cowplot::plot_grid(g1, g2, g3, g4)
+```
+
+
+
+# Modeling - Midtro
+
+## 토픽 ~ 가장 높은 토픽, 방문고려요인, **국적(대만 기준)**
+
+> 방문고려요인을 공변량처럼 생각하여 변수에 다 포함한 다음에 선형회귀를 진행해보자.
 
 ```{r}
 for_to_char <- function(fomul){
     paste(as.character(fomul)[2], as.character(fomul)[1], as.character(fomul)[3])
 }
-
 
 test2_model1 <- paste(for_to_char(test1_model1), '+ 국적 * highest_topic')
 test2_model2 <- paste(for_to_char(test1_model2), '+ 국적 * highest_topic')
@@ -136,9 +208,128 @@ model3_2 <- eval(expr(lm(!!test2_model3, data=df)))
 model4_2 <- eval(expr(lm(!!test2_model4, data=df)))
 ```
 
-### Q : 성별은 여행 선호도에 영향이 있을까?
+```{r}
+significant12 <- broom::tidy(model1_2) %>%
+    filter(abs(statistic) > 1.9) # 유의한 것 중에
 
-> 방문목적, 국적을 공변량처럼 생각하여 변수에 다 포함한 다음에 선형회귀를 진행해보자.
+
+cond1 <- nchar(significant12$term) < 10 # 교호텀 아닌 것 중에에
+cond2 <- grepl('국적', significant12$term) # 국적이 있는가?
+
+g1 <- significant12[cond1&cond2, ] %>%
+    ggplot(aes(factor(term, 
+                      levels=significant12[cond1&cond2, ] %>% 
+                                    select(term, estimate) %>% 
+                                    arrange(estimate) %>% 
+                                    pull(term)
+                      ), estimate)) +
+    geom_hline(yintercept = 0, size=3) +
+    geom_bar(stat='identity') +
+    labs(x='국적', title='조용한도시 ~ 국적') +
+    theme(plot.title = element_text(face = "bold", size = 15, hjust=0.5),
+          axis.ticks = element_blank(), 
+          axis.text.x = element_text(angle = -90, vjust = 1, hjust = 0),
+          panel.grid.minor = element_blank())
+```
+
+
+```{r}
+significant22 <- broom::tidy(model2_2) %>%
+    filter(abs(statistic) > 1.9) # 유의한 것 중에
+
+
+cond1 <- nchar(significant22$term) < 10 # 교호텀 아닌 것 중에에
+cond2 <- grepl('국적', significant22$term) # 국적이 있는가?
+
+
+g2 <- significant22[cond1&cond2, ] %>%
+    ggplot(aes(factor(term, 
+                      levels=significant22[cond1&cond2, ] %>% 
+                                    select(term, estimate) %>% 
+                                    arrange(estimate) %>% 
+                                    pull(term)
+                      ), estimate)) +
+    geom_hline(yintercept = 0, size=3) +
+    geom_bar(stat='identity') +
+    labs(x='국적', title='번화가도시 ~ 국적') +
+    theme(plot.title = element_text(face = "bold", size = 15, hjust=0.5),
+          axis.ticks = element_blank(), 
+          axis.text.x = element_text(angle = -90, vjust = 1, hjust = 0),
+          panel.grid.minor = element_blank())
+```
+
+
+```{r}
+significant32 <- broom::tidy(model3_2) %>%
+    filter(abs(statistic) > 1.9) # 유의한 것 중에
+
+
+cond1 <- nchar(significant32$term) < 10 # 교호텀 아닌 것 중에에
+cond2 <- grepl('국적', significant32$term) # 국적이 있는가?
+
+
+g3 <- significant32[cond1&cond2, ] %>%
+    ggplot(aes(factor(term, 
+                      levels=significant32[cond1&cond2, ] %>% 
+                                    select(term, estimate) %>% 
+                                    arrange(estimate) %>% 
+                                    pull(term)
+                      ), estimate)) +
+    geom_hline(yintercept = 0, size=3) +
+    geom_bar(stat='identity') +
+    labs(x='국적', title='조용한역사 ~ 국적') +
+    theme(plot.title = element_text(face = "bold", size = 15, hjust=0.5),
+          axis.ticks = element_blank(), 
+          axis.text.x = element_text(angle = -90, vjust = 1, hjust = 0),
+          panel.grid.minor = element_blank())
+```
+
+```{r}
+significant42 <- broom::tidy(model4_2) %>%
+    filter(abs(statistic) > 1.9) # 유의한 것 중에
+
+
+cond1 <- nchar(significant42$term) < 10 # 교호텀 아닌 것 중에에
+cond2 <- grepl('국적', significant42$term) # 국적이 있는가?
+
+g4 <- significant42[cond1&cond2, ] %>%
+    ggplot(aes(factor(term, 
+                      levels=significant42[cond1&cond2, ] %>% 
+                                    select(term, estimate) %>% 
+                                    arrange(estimate) %>% 
+                                    pull(term)
+                      ), estimate)) +
+    geom_hline(yintercept = 0, size=3) +
+    geom_bar(stat='identity') +
+    labs(x='국적', title='조용한자연 ~ 국적') +
+    theme(plot.title = element_text(face = "bold", size = 15, hjust=0.5),
+          axis.ticks = element_blank(), 
+          axis.text.x = element_text(angle = -90, vjust = 1, hjust = 0),
+          panel.grid.minor = element_blank())
+```
+
+```{r}
+g1
+```
+
+국적 변수는 유의한 편이고 **동남아 국적**의 경우 **(도시 - 조용한)**을 선호한다.
+
+```{r}
+g2
+```
+
+국적 변수는 유의한 편이고 **미국, 중국, 중동, 몽골**이 **번화가 도시**를 선호하는 편이다.
+
+
+```{r}
+cowplot::plot_grid(g3, g4)
+```
+
+국적 변수는 유의한 편이고 **일본과 서양 국가들**이 **조용한 자연**를 선호하는 편이다.
+
+## 토픽 ~ 가장 높은 토픽, 방문고려요인, 국적, **성별(남성 기준)**
+
+> 방문고려요인, 국적을 공변량처럼 생각하여 변수에 다 포함한 다음에 선형회귀를 진행해보자.
 
 ```{r}
 test3_model1 <- paste(for_to_char(test2_model1), '+ 성별 * highest_topic')
@@ -158,9 +349,120 @@ model3_3 <- eval(expr(lm(!!test3_model3, data=df)))
 model4_3 <- eval(expr(lm(!!test3_model4, data=df)))
 ```
 
-### Q : 나이는 여행 선호도에 영향이 있을까?
 
-> 방문목적, 국적을 공변량처럼 생각하여 변수에 다 포함한 다음에 선형회귀를 진행해보자.
+```{r}
+significant <- broom::tidy(model1_3) %>%
+    filter(abs(statistic) > 1.9) # 유의한 것 중에
+
+
+cond1 <- nchar(significant$term) < 10 # 교호텀 아닌 것 중에에
+cond2 <- grepl('성별', significant$term) # 국적이 있는가?
+
+g1 <- significant[cond1&cond2, ] %>%
+    ggplot(aes(factor(term, 
+                      levels=significant[cond1&cond2, ] %>% 
+                                    select(term, estimate) %>% 
+                                    arrange(estimate) %>% 
+                                    pull(term)
+                      ), estimate)) +
+    geom_hline(yintercept = 0, size=3) +
+    geom_bar(stat='identity') +
+    labs(x='성별', title='조용한도시 ~ 성별') +
+    scale_x_discrete(expand = c(0.5,0.5)) +
+    theme(plot.title = element_text(face = "bold", size = 15, hjust=0.5),
+          axis.ticks = element_blank(), 
+          axis.text.x = element_text(angle = -30, vjust = 1, hjust = 0),
+          panel.grid.minor = element_blank())
+```
+
+```{r}
+significant <- broom::tidy(model2_3) %>%
+    filter(abs(statistic) > 1.9) # 유의한 것 중에
+
+
+cond1 <- nchar(significant$term) < 10 # 교호텀 아닌 것 중에에
+cond2 <- grepl('성별', significant$term) # 국적이 있는가?
+drop_condition <- nrow(significant[cond1 & cond2, ])==0
+
+
+g2 <- significant[cond1&cond2, ] %>%
+    ggplot(aes(factor(term, 
+                      levels=significant[cond1&cond2, ] %>% 
+                                    select(term, estimate) %>% 
+                                    arrange(estimate) %>% 
+                                    pull(term)
+                      ), estimate)) +
+    geom_hline(yintercept = 0, size=3) +
+    geom_bar(stat='identity') +
+    labs(x='목적', title='번화가도시 ~ 성별') +
+    scale_x_discrete(expand = c(0.5,0.5)) +
+    theme(plot.title = element_text(face = "bold", size = 15, hjust=0.5),
+          axis.ticks = element_blank(), 
+          axis.text.x = element_text(angle = -30, vjust = 1, hjust = 0),
+          panel.grid.minor = element_blank())
+```
+
+```{r}
+significant <- broom::tidy(model3_3) %>%
+    filter(abs(statistic) > 1.9) # 유의한 것 중에
+
+
+cond1 <- nchar(significant$term) < 10 # 교호텀 아닌 것 중에에
+cond2 <- grepl('성별', significant$term) # 국적이 있는가?
+
+g3 <- significant[cond1&cond2, ] %>%
+    ggplot(aes(factor(term, 
+                      levels=significant[cond1&cond2, ] %>% 
+                                    select(term, estimate) %>% 
+                                    arrange(estimate) %>% 
+                                    pull(term)
+                      ), estimate)) +
+    geom_hline(yintercept = 0, size=3) +
+    geom_bar(stat='identity') +
+    labs(x='성별', title='조용한역사 ~ 성별') +
+    scale_x_discrete(expand = c(0.5,0.5)) +
+    theme(plot.title = element_text(face = "bold", size = 15, hjust=0.5),
+          axis.ticks = element_blank(), 
+          axis.text.x = element_text(angle = -30, vjust = 1, hjust = 0),
+          panel.grid.minor = element_blank())
+```
+
+```{r}
+significant <- broom::tidy(model4_3) %>%
+    filter(abs(statistic) > 1.9) # 유의한 것 중에
+
+
+cond1 <- nchar(significant$term) < 10 # 교호텀 아닌 것 중에에
+cond2 <- grepl('성별', significant$term) # 국적이 있는가?
+
+g4 <- significant[cond1&cond2, ] %>%
+    ggplot(aes(factor(term, 
+                      levels=significant[cond1&cond2, ] %>% 
+                                    select(term, estimate) %>% 
+                                    arrange(estimate) %>% 
+                                    pull(term)
+                      ), estimate)) +
+    geom_hline(yintercept = 0, size=3) +
+    geom_bar(stat='identity') +
+    labs(x='성별', title='조용한자연 ~ 성별') +
+    scale_x_discrete(expand = c(0.5,0.5)) +
+    theme(plot.title = element_text(face = "bold", size = 15, hjust=0.5),
+          axis.ticks = element_blank(), 
+          axis.text.x = element_text(angle = -30, vjust = 1, hjust = 0),
+          panel.grid.minor = element_blank())
+```
+
+```{r}
+cowplot::plot_grid(g1, g2, g3, g4)
+```
+
+성별 변수는 유의한 편이고 **남성**이 **조용한 도시**를 선호하는 편이다.
+
+
+
+## 토픽 ~ 가장 높은 토픽, 방문고려요인, 국적, 성별, **나이(10대 기준)**
+
+> 방문목적, 성별, 국적을 공변량처럼 생각하여 변수에 다 포함한 다음에 선형회귀를 진행해보자.
 
 ```{r}
 test4_model1 <- paste(for_to_char(test3_model1), '+ 나이 * highest_topic')
@@ -180,18 +482,134 @@ model3_4 <- eval(expr(lm(!!test4_model3, data=df)))
 model4_4 <- eval(expr(lm(!!test4_model4, data=df)))
 ```
 
-이미 가장 높은 토픽이 무엇인 지 아는 상황에서 만든 회귀모형은 굉장히 높은 설명력을 갖추게 된다.
+
+```{r}
+significant <- broom::tidy(model1_4) %>%
+    filter(abs(statistic) > 1.9) # 유의한 것 중에
+
+
+cond1 <- nchar(significant$term) < 10 # 교호텀 아닌 것 중에에
+cond2 <- grepl('나이', significant$term) # 국적이 있는가?
+
+g1 <- significant[cond1&cond2, ] %>%
+    ggplot(aes(factor(term, 
+                      levels=significant[cond1&cond2, ] %>% 
+                                    select(term, estimate) %>% 
+                                    arrange(estimate) %>% 
+                                    pull(term)
+                      ), estimate)) +
+    geom_hline(yintercept = 0, size=3) +
+    geom_bar(stat='identity') +
+    labs(x='연령', title='조용한 도시 ~ 연령') +
+    scale_x_discrete(expand = c(0.5,0.5)) +
+    theme(plot.title = element_text(face = "bold", size = 15, hjust=0.5),
+          axis.ticks = element_blank(), 
+          axis.text.x = element_text(angle = -30, vjust = 1, hjust = 0),
+          panel.grid.minor = element_blank())
+```
+
+```{r}
+significant <- broom::tidy(model2_4) %>%
+    filter(abs(statistic) > 1.9) # 유의한 것 중에
+
+
+cond1 <- nchar(significant$term) < 10 # 교호텀 아닌 것 중에에
+cond2 <- grepl('나이', significant$term) # 국적이 있는가?
+
+g2 <- significant[cond1&cond2, ] %>%
+    ggplot(aes(factor(term, 
+                      levels=significant[cond1&cond2, ] %>% 
+                                    select(term, estimate) %>% 
+                                    arrange(estimate) %>% 
+                                    pull(term)
+                      ), estimate)) +
+    geom_hline(yintercept = 0, size=3) +
+    geom_bar(stat='identity') +
+    labs(x='연령', title='번화가도시 ~ 연령') +
+    scale_x_discrete(expand = c(0.5,0.5)) +
+    theme(plot.title = element_text(face = "bold", size = 15, hjust=0.5),
+          axis.ticks = element_blank(), 
+          axis.text.x = element_text(angle = -30, vjust = 1, hjust = 0),
+          panel.grid.minor = element_blank())
+```
+
+```{r}
+significant <- broom::tidy(model3_4) %>%
+    filter(abs(statistic) > 1.9) # 유의한 것 중에
+
+
+cond1 <- nchar(significant$term) < 10 # 교호텀 아닌 것 중에에
+cond2 <- grepl('나이', significant$term) # 국적이 있는가?
+
+
+
+g3 <- significant[cond1&cond2, ] %>%
+    ggplot(aes(factor(term, 
+                      levels=significant[cond1&cond2, ] %>% 
+                                    select(term, estimate) %>% 
+                                    arrange(estimate) %>% 
+                                    pull(term)
+                      ), estimate)) +
+    geom_hline(yintercept = 0, size=3) +
+    geom_bar(stat='identity') +
+    labs(x='연령', title='조용한역사 ~ 연령') +
+    scale_x_discrete(expand = c(0.5,0.5)) +
+    theme(plot.title = element_text(face = "bold", size = 15, hjust=0.5),
+          axis.ticks = element_blank(), 
+          axis.text.x = element_text(angle = -30, vjust = 1, hjust = 0),
+          panel.grid.minor = element_blank())
+```
+
+```{r}
+significant <- broom::tidy(model4_4) %>%
+    filter(abs(statistic) > 1.9) # 유의한 것 중에
+
+
+cond1 <- nchar(significant$term) < 10 # 교호텀 아닌 것 중에에
+cond2 <- grepl('나이', significant$term) # 국적이 있는가?
+
+g4 <- significant[cond1&cond2, ] %>%
+    ggplot(aes(factor(term, 
+                      levels=significant[cond1&cond2, ] %>% 
+                                    select(term, estimate) %>% 
+                                    arrange(estimate) %>% 
+                                    pull(term)
+                      ), estimate)) +
+    geom_hline(yintercept = 0, size=3) +
+    geom_bar(stat='identity') +
+    labs(x='연령', title='조용한자연 ~ 연령') +
+    scale_x_discrete(expand = c(0.5,0.5)) +
+    theme(plot.title = element_text(face = "bold", size = 15, hjust=0.5),
+          axis.ticks = element_blank(), 
+          axis.text.x = element_text(angle = -30, vjust = 1, hjust = 0),
+          panel.grid.minor = element_blank())
+```
+
+```{r}
+cowplot::plot_grid(g1, g2)
+```
+
+연령 변수는 유의한 편이고 **30대**가 **조용한 도시**를 선호하지 않는 편이다.
+
+
+
+```{r}
+cowplot::plot_grid(g3, g4)
+```
+
+연령 변수는 유의한 편이고 **모든 연령이**가 10대보다 **조용한 자연**를 선호하는 편이다.
+
+
+## Summary
+
+가장 높은 토픽(1, 2, 3, 4)이 무엇인 지 아는 상황에서 만든 회귀모형은 굉장히 높은 설명력을 갖추게 된다.
 
 ```{r}
 rbind(broom::glance(model1_4), broom::glance(model2_4), broom::glance(model3_4), broom::glance(model4_4)) %>% mutate(Topic=c('Topic1', 'Topic2', 'Topic3', 'Topic4')) %>%
     select(Topic, adj.r.squared, df)
 ```
 
-> prediction from a rank-deficient fit may be misleading
-
-model1_4$coefficients['highest_topic4:국적인도'] = 0
-
-## Modeling - ourtro
+# Modeling - ourtro
 
 > prediction from a rank-deficient fit may be misleading
 
@@ -204,6 +622,7 @@ X3 <- model.matrix(test4_model3, data=df)
 X4 <- model.matrix(test4_model4, data=df)
 
 # 인도인 중에 토픽4를 방문한 사람이 없다.
+model1_4$coefficients['highest_topic4:국적인도'] = 0
 model2_4$coefficients['highest_topic4:국적인도'] = 0
 model3_4$coefficients['highest_topic4:국적인도'] = 0
 model4_4$coefficients['highest_topic4:국적인도'] = 0
@@ -245,15 +664,13 @@ lda_results2 <- read.csv('LDA_results2.csv') %>% select(-X)
 
 일단 방문 고려요인, 인구통계정보, 관심 주제가 들어온다.
 
-그 다음 이미 학습된 선형회귀모형으로 예측을 하고 랭크 변환을 한다.
-
 그 다음 예측된 토픽에서 최근접 3개의 여행지를 추천한다.
 
 목적은 한번에 여러개 받지 말고 하나씩 나눠서 받도록 하자!
 
 ```{r}
 input <- list()
-input[['목적']] <- c('역사')
+input[['목적']] <- c('전통')
 # '목적_역사','목적_K-POP','목적_자연','목적_미용','목적_전통','목적_패션','목적_쇼핑','목적_유흥'
 # character
 
@@ -269,11 +686,11 @@ input[['성별']] <- factor('남성', levels = c('남성', '여성'))
 # 남성, 여성
 # factor
 
-input[['나이']] <- factor('41-50세',levels=c("15-20세", "21-30세", "31-40세", "41-50세", "51-60세", "61세이상"))
+input[['나이']] <- factor('15-20세',levels=c("15-20세", "21-30세", "31-40세", "41-50세", "51-60세", "61세이상"))
 # "15-20세", "21-30세", "31-40세", "41-50세", "51-60세", "61세이상"
 # factor
 
-input[['highest_topic']] <- factor(3, levels = c(1,2,3,4))
+input[['highest_topic']] <- factor(2, levels = c(1,2,3,4))
 # 1 2 3 4
 # factor
 ```
@@ -304,6 +721,7 @@ X3 <- model.matrix(test4_model3, data=input_df)
 X4 <- model.matrix(test4_model4, data=input_df)
 
 # 인도인 중에 토픽4를 방문한 사람이 없다.
+model1_4$coefficients['highest_topic4:국적인도'] = 0
 model2_4$coefficients['highest_topic4:국적인도'] = 0
 model3_4$coefficients['highest_topic4:국적인도'] = 0
 model4_4$coefficients['highest_topic4:국적인도'] = 0

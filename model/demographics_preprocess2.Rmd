@@ -1,0 +1,226 @@
+---
+layout: page
+title: "demographic_preprocess"
+author: "Lee"
+date: "`r Sys.Date()`"
+output:
+  html_document: 
+    toc: yes
+    toc_float: true
+    highlight: tango
+    code_folding: show
+    number_section: true
+    self_contained: true
+    lib_dir: gapminder
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r, warning=FALSE, message=FALSE}
+library(tidyverse)
+library(data.table)
+df <- data.table::fread('./2018 외래관광객 실태조사 원자료.csv', encoding = 'UTF-8')
+```
+
+참고 : [원자료](https://know.tour.go.kr/stat/fRawDataDownloadDis.do)의 1628번째 설문조사 만족한 활동지 998이라는 오탈자를 지웠다.
+
+**목적**
+
+> X : 방문 고려요인, 인구통계 정보 $\rightarrow$  Y: 만족한 방문지
+>
+> 즉 둘 간의 관계를 알고 싶다.
+
+
+**사용할 원자료 변수 설명**
+
+> Q5_1 : 방문 주요 목적(1번이 아니면 여행자가 아니므로 삭제하자.)
+>
+> Q5_2A1: 목적 1위
+>
+> Q5_2A2: 목적 2위
+>
+> Q5_2A3: 목적 3위
+>
+> Q11A1 : 만족 관광지 1위
+>
+> Q11A2 : 만족 관광지 2위
+>
+> Q11A3 : 만족 관광지 3위
+>
+> Q15_1 : 전반적 만족도
+>
+> D_COU : 국적
+>
+> D_GEN : 성별
+>
+> D_AGE : 나이
+
+위에서 언급한 사용할 변수들을 고르자.
+
+```{r}
+df <- df %>% 
+    select(Q5_1, starts_with('Q5_2'), starts_with('Q11A'), starts_with('Q15_1'), 
+           D_COU, D_GEN, D_AGE) %>%
+    filter(Q5_1 == '여가, 위락, 휴식') %>% # 방문 목적이 여행객들인 사람만 조사하자,
+    select(-Q5_1) 
+```
+
+Q15_1(전반적 만족도)를 *매우만족, 대체로만족, 보통, 대체로불만족, 매우불만족*로 대체 표기를 하자.
+
+```{r}
+df$Q15_1[grepl('매우 만족', df$Q15_1)] = '매우만족'
+df$Q15_1[grepl('대체로 만족', df$Q15_1)] = '대체로만족'
+df$Q15_1[grepl('보통', df$Q15_1)] = '보통'
+df$Q15_1[grepl('대체로 불만족', df$Q15_1)] = '대체로불만족'
+df$Q15_1[grepl('매우 불만족', df$Q15_1)] = '매우불만족'
+```
+
+변수 명을 변경하자.
+
+```{r}
+df <- rename(df, 목적_1위=Q5_2A1, 목적_2위=Q5_2A2, 목적_3위=Q5_2A3,
+             방문지_1위=Q11A1, 방문지_2위=Q11A2, 방문지_3위=Q11A3,
+             만족도=Q15_1, 국적=D_COU, 성별=D_GEN, 나이=D_AGE)
+```
+
+문자들의 공백을 제거하자.
+
+```{r}
+df['국적'] <- gsub('\\s+', '', df[['국적']])
+df['성별'] <- gsub('\\s+', '', df[['성별']])
+df['나이'] <- gsub('\\s+', '', df[['나이']])
+```
+
+결측치를 NA로 표시하자.
+
+```{r}
+df[df==''] = NA
+```
+
+만족도 1, 2, 3위 방문지를 방문지도 *만족방문지*라는 변수 합치는게 분석에 용이하다.
+
+> 가장 합치기 좋은 방법은 샘플을 여러개 만드는 것이다. 만약 *만족방문지*를 3위까지 적었으면 샘플이 3개로 늘어난다.
+
+```{r}
+is_2nd <- !(df %>% pull('방문지_2위') %>% is.na)
+is_3rd <- !(df %>% pull('방문지_3위') %>% is.na)
+df_2nd <- df[is_2nd,]
+df_2nd['방문지_1위'] <- df_2nd[['방문지_2위']]
+df_3rd <- df[is_3rd,]
+df_3rd['방문지_1위'] <- df_3rd[['방문지_3위']]
+df <- rbind(df, df_2nd, df_3rd)
+df <- df %>% select(-방문지_2위, -방문지_3위) %>% rename(만족방문지=방문지_1위)
+```
+
+문자열 변수들을 범주형으로 바꿔주자.
+
+```{r}
+character_columns <- names(sapply(df, class)[sapply(df, class) == 'character'])
+df[character_columns] <- lapply(df[character_columns] , factor)
+
+# ordered factor
+
+df['만족도'] <- ordered(df[['만족도']], levels = c("매우불만족", "대체로불만족",
+                                   "보통", '대체로만족', '매우만족'))
+```
+
+```{r}
+df['만족방문지'] %>% 
+    group_by(만족방문지) %>%
+    summarize(freq=n()) %>%
+    top_n(40) %>%
+    summarise(sample_ratio = sum(freq) / nrow(df))
+```
+
+전체의 95% 비율을 차지하고 있는 top 40 관광지에 대해서 조사를 진행하도록 하자.
+
+```{r}
+top40 <- df['만족방문지'] %>% 
+    group_by(만족방문지) %>%
+    summarize(freq=n()) %>%
+    top_n(40) %>%
+    arrange(desc(freq)) %>%
+    pull(만족방문지) %>%
+    as.character()
+
+
+df <- df[df$만족방문지 %in% top40,]
+df$만족방문지 <- as.factor(as.character(df$만족방문지))
+```
+
+**목적**
+
+> X : 방문 고려요인, 인구통계 정보 $\rightarrow$  Y: **만족**한 방문지
+
+매우 만족한 경우에 대해서 조사를 하자.
+
+```{r}
+#여행이 매우 만족한 경우가 아니라면 제거하자.
+df <- df %>% filter(만족도=='매우만족')
+df <- df %>% select(-만족도) # 이제 다 매우만족이므로 필요 없음
+# 국적 기타 제거
+df <- df %>% filter(국적!='기타')
+```
+
+
+방문지 인덱스를 만들자.
+
+```{r}
+df['category'] <- as.numeric(factor(df$만족방문지, level=top40))
+df[df['category'] == 37, 'category'] <- 27
+```
+
+목적은 1위부터 3위까지 있는데 차등을 주지 말고 하나로 묶자.
+
+```{r}
+df <- df %>% mutate(목적 = paste0('(', 목적_1위, ', ', 목적_2위, ', ', 목적_3위, ')'))
+
+# 목적_1위 ~ 3위는 이제 쓸모없으니 제거하자.
+df <- df %>% select(-목적_1위, -목적_2위, -목적_3위)
+```
+
+**살리는 목적 VS 못살리는 목적**
+
+word frequency로 해석한 주제 (`LDA.ipynb`)는 다음과 같다.
+
+1번 (도시 - 조용한)
+
+2번 (도시 - 번화가의)
+
+3번 (역사 - 조용한)
+
+4번 (자연 - 조용한)
+
+주어진 토픽 하에서 살릴 수 있는 목적과 살릴 수 없는 목적이 나뉘어진다.
+
+1. 살리는 목적 (주제와 관련 있는)
+
+    > "역사/문화 유적 탐방", "K-POP", "쇼핑", "유흥/놀이 시설",  "자연 풍경 감상", "치료 및 미용 서비스", "템플스테이 태권도 등 한국 전통 문화 체험", "패션, 유행 등 세련된 현대 문화"      
+
+2. 못 살리는 목적 (주제와 관련 없는)
+
+    > "경제적인 여행비용", "기타", "기후/ 뚜렷한 사계절", "레저 및 스포츠 활동", "숙박/ 교통 등 관광 편리성 및 안전성", "자국과의 이동 거리", "친구, 친지 방문", "휴가 시간"
+
+```{r}
+# 살릴 수 있는 방문 목적을 기입하지 않은 사람은 제거하자.
+df['목적_역사'] <- ifelse(grepl('역사' , df$목적), 1, 0)
+df['목적_KPOP'] <- ifelse(grepl('POP' , df$목적), 1, 0)
+df['목적_자연'] <- ifelse(grepl('자연' , df$목적), 1, 0)
+df['목적_미용'] <- ifelse(grepl('미용' , df$목적), 1, 0)
+df['목적_전통'] <- ifelse(grepl('전통' , df$목적), 1, 0)
+df['목적_패션'] <- ifelse(grepl('패션' , df$목적), 1, 0)
+df['목적_쇼핑'] <- ifelse(grepl('쇼핑' , df$목적), 1, 0)
+df['목적_유흥'] <- ifelse(grepl('유흥' , df$목적), 1, 0)
+
+temp <- df %>% select(starts_with('목적_'), -ends_with('위'))
+temp <- apply(temp,1,sum)!=0
+
+df <- df[temp, ]
+df <- df %>% select(-목적) # 이제 목적은 필요 없음
+```
+
+```{r}
+write.csv(df, './preprocessed.csv')
+```
+
+전처리는 이것으로 끝났다.
