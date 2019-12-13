@@ -1,0 +1,337 @@
+---
+layout: page
+title: "Final Report"
+author: "Lee"
+date: "`r Sys.Date()`"
+output:
+  html_document: 
+    toc: yes
+    toc_float: true
+    highlight: tango
+    code_folding: show
+    number_section: true
+    self_contained: true
+    lib_dir: gapminder
+editor_options: 
+  chunk_output_type: inline
+---
+
+# Modeling
+
+```{r, warning=FALSE, message=FALSE}
+library(tidyverse)
+```
+
+## Import Data 
+
+```{r}
+df <- read.csv('./preprocessed.csv') %>% select(-X) %>% filter()
+temp_corr <- colnames(df)
+```
+
+관광설문조사 데이터와 트립어드바이저 리뷰를 통해 얻어낸 LDA results를 join시키자.
+
+```{r}
+lda_results <- read.csv('LDA_results.csv') %>% select(-X)
+df <- left_join(df, lda_results, by='category')
+prev_nrow <- nrow(df)
+```
+
+애매한 토픽의 관광지는 제거하자.
+
+```{r}
+df %>% filter(highest_ratio<0.8) %>% distinct(만족방문지)
+df <- df %>% filter(highest_ratio>=0.8)
+now <- nrow(df)
+print(paste(prev_nrow, '에서', prev_nrow-now, '개의 설문조사 제거'))
+```
+
+```{r}
+# 이는 모델에 들어갈 변수이고 범주형으로 변환해주자.
+df$highest_topic <- factor(df$highest_topic)
+```
+
+
+## Modeling - Intro
+
+모델을 와닿게 설명을 하면, *가장 높은 토픽이 뭔지는 알려줄게 한번 나머지들을 다 찾아봐라!* 이다.
+
+```{r, warning=FALSE, message=FALSE}
+library(corrplot)
+temp_corr <- c(temp_corr, 'highest_topic') # highest_topic도 모델에 포함하기로 결정
+test_corr <- df %>% select(temp_corr) %>% select(-category, -만족방문지)
+test_corr <- as.data.frame(lapply(test_corr, as.integer))
+test_corr %>% cor %>% corrplot
+```
+
+우리는 다중선형회귀 모형을 사용할 예정인 만큼 상관계수를 한번 보도록 하자.
+
+각 변수들의 상관계수가 작은 편이기 때문에 **다변수 회귀 계수 해석**이 **안전**하다. (음과 양이 바뀌는 상황이 거의 없기 때문에)
+
+
+```{r}
+library("rlang")
+test1 <- df %>% select(starts_with('목적_'), highest_topic)
+
+temp <- colnames(test1) 
+temp_loc <- which(!grepl('highest_topic', temp))
+temp2 <- temp[temp_loc]
+temp3 <- paste(temp2, collapse = paste(' *', 'highest_topic', '+ '))
+
+test1_model1 <- as.formula(paste('topic1 ~', temp3, '* highest_topic'))
+test1_model2 <- as.formula(paste('topic2 ~', temp3, '* highest_topic'))
+test1_model3 <- as.formula(paste('topic3 ~', temp3, '* highest_topic'))
+test1_model4 <- as.formula(paste('topic4 ~', temp3, '* highest_topic'))
+# "df$topic1 ~ 목적_역사 * highest_topic + 목적_KPOP * highest_topic + 목적_자연 * highest_topic + 목적_미용 * highest_topic + 목적_전통 * highest_topic + 목적_패션 * highest_topic + 목적_쇼핑 * highest_topic + 목적_유흥 * highest_topic"
+
+
+model1 <- eval(expr(lm(!!test1_model1, data=df)))
+model2 <- eval(expr(lm(!!test1_model2, data=df)))
+model3 <- eval(expr(lm(!!test1_model3, data=df)))
+model4 <- eval(expr(lm(!!test1_model4, data=df)))
+```
+
+당연히 가장 높은게 2 혹은 3 혹은 4임을 아는 상황에서 토픽1을 예측할 때 낮게 배팅할 수 밖에 없다.
+
+```{r}
+broom::tidy(model1)[3:5, c('term', 'estimate')]
+```
+
+
+우선, **AIC**을 기준으로 **모델셀렉션(변수선택)**을 하여 토픽을 설명하는데 필요한 방문고려요인을 찾아보도록하자.  
+
+```{r}
+# <- MASS::stepAIC(model1, direction = "both",trace = FALSE)
+#stepmodel2 <- MASS::stepAIC(model2, direction = "both",trace = FALSE)
+#stepmodel3 <- MASS::stepAIC(model3, direction = "both",trace = FALSE)
+#stepmodel4 <- MASS::stepAIC(model4, direction = "both",trace = FALSE)
+```
+
+## Modeling - Midtro
+
+### Q : 국적은 여행 선호도에 영향이 있을까?
+
+> 방문 목적을 공변량처럼 생각하여 변수에 포함한 다음에 둔 다음에 선형회귀를 진행해보자.
+
+```{r}
+for_to_char <- function(fomul){
+    paste(as.character(fomul)[2], as.character(fomul)[1], as.character(fomul)[3])
+}
+
+
+test2_model1 <- paste(for_to_char(test1_model1), '+ 국적 * highest_topic')
+test2_model2 <- paste(for_to_char(test1_model2), '+ 국적 * highest_topic')
+test2_model3 <- paste(for_to_char(test1_model3), '+ 국적 * highest_topic')
+test2_model4 <- paste(for_to_char(test1_model4), '+ 국적 * highest_topic')
+
+test2_model1 <- as.formula(test2_model1)
+test2_model2 <- as.formula(test2_model2)
+test2_model3 <- as.formula(test2_model3)
+test2_model4 <- as.formula(test2_model4)
+
+
+model1_2 <- eval(expr(lm(!!test2_model1, data=df)))
+model2_2 <- eval(expr(lm(!!test2_model2, data=df)))
+model3_2 <- eval(expr(lm(!!test2_model3, data=df)))
+model4_2 <- eval(expr(lm(!!test2_model4, data=df)))
+```
+
+### Q : 성별은 여행 선호도에 영향이 있을까?
+
+> 방문목적, 국적을 공변량처럼 생각하여 변수에 다 포함한 다음에 선형회귀를 진행해보자.
+
+```{r}
+test3_model1 <- paste(for_to_char(test2_model1), '+ 성별 * highest_topic')
+test3_model2 <- paste(for_to_char(test2_model2), '+ 성별 * highest_topic')
+test3_model3 <- paste(for_to_char(test2_model3), '+ 성별 * highest_topic')
+test3_model4 <- paste(for_to_char(test2_model4), '+ 성별 * highest_topic')
+
+test3_model1 <- as.formula(test3_model1)
+test3_model2 <- as.formula(test3_model2)
+test3_model3 <- as.formula(test3_model3)
+test3_model4 <- as.formula(test3_model4)
+
+
+model1_3 <- eval(expr(lm(!!test3_model1, data=df)))
+model2_3 <- eval(expr(lm(!!test3_model2, data=df)))
+model3_3 <- eval(expr(lm(!!test3_model3, data=df)))
+model4_3 <- eval(expr(lm(!!test3_model4, data=df)))
+```
+
+### Q : 나이는 여행 선호도에 영향이 있을까?
+
+> 방문목적, 국적을 공변량처럼 생각하여 변수에 다 포함한 다음에 선형회귀를 진행해보자.
+
+```{r}
+test4_model1 <- paste(for_to_char(test3_model1), '+ 나이 * highest_topic')
+test4_model2 <- paste(for_to_char(test3_model2), '+ 나이 * highest_topic')
+test4_model3 <- paste(for_to_char(test3_model3), '+ 나이 * highest_topic')
+test4_model4 <- paste(for_to_char(test3_model4), '+ 나이 * highest_topic')
+
+test4_model1 <- as.formula(test4_model1)
+test4_model2 <- as.formula(test4_model2)
+test4_model3 <- as.formula(test4_model3)
+test4_model4 <- as.formula(test4_model4)
+
+
+model1_4 <- eval(expr(lm(!!test4_model1, data=df)))
+model2_4 <- eval(expr(lm(!!test4_model2, data=df)))
+model3_4 <- eval(expr(lm(!!test4_model3, data=df)))
+model4_4 <- eval(expr(lm(!!test4_model4, data=df)))
+```
+
+이미 가장 높은 토픽이 무엇인 지 아는 상황에서 만든 회귀모형은 굉장히 높은 설명력을 갖추게 된다.
+
+```{r}
+rbind(broom::glance(model1_4), broom::glance(model2_4), broom::glance(model3_4), broom::glance(model4_4)) %>% mutate(Topic=c('Topic1', 'Topic2', 'Topic3', 'Topic4')) %>%
+    select(Topic, adj.r.squared, df)
+```
+
+> prediction from a rank-deficient fit may be misleading
+
+model1_4$coefficients['highest_topic4:국적인도'] = 0
+
+## Modeling - ourtro
+
+> prediction from a rank-deficient fit may be misleading
+
+라는 에러가 뜨므로 직접 predict를 해야한다.
+
+```{r}
+X1 <- model.matrix(test4_model1, data=df)
+X2 <- model.matrix(test4_model2, data=df)
+X3 <- model.matrix(test4_model3, data=df)
+X4 <- model.matrix(test4_model4, data=df)
+
+# 인도인 중에 토픽4를 방문한 사람이 없다.
+model2_4$coefficients['highest_topic4:국적인도'] = 0
+model3_4$coefficients['highest_topic4:국적인도'] = 0
+model4_4$coefficients['highest_topic4:국적인도'] = 0
+
+
+yhat1 <- X1 %*% model1_4$coefficients
+yhat2 <- X2 %*% model2_4$coefficients
+yhat3 <- X3 %*% model3_4$coefficients
+yhat4 <- X4 %*% model4_4$coefficients
+
+estimated_df <- data.frame(topic1 = yhat1, topic2 = yhat2, topic3 = yhat3, topic4 = yhat4)
+```
+
+```{r}
+SST1 = sum((df$topic1 - mean(df$topic1))^2)
+SSE1 = sum((df$topic1 - yhat1)^2)
+print(paste('토픽1의 결정계수 :', (SST1 - SSE1) / SST1))
+
+SST2 = sum((df$topic2 - mean(df$topic2))^2)
+SSE2 = sum((df$topic2 - yhat2)^2)
+print(paste('토픽2의 결정계수 :', (SST2 - SSE2) / SST2))
+
+SST3 = sum((df$topic3 - mean(df$topic3))^2)
+SSE3 = sum((df$topic3 - yhat3)^2)
+print(paste('토픽3의 결정계수 :', (SST3 - SSE3) / SST3))
+
+SST4 = sum((df$topic4 - mean(df$topic4))^2)
+SSE4 = sum((df$topic4 - yhat4)^2)
+print(paste('토픽4의 결정계수 :', (SST4 - SSE4) / SST4))
+```
+
+# 파이프라인
+
+```{r}
+lda_results2 <- read.csv('LDA_results2.csv') %>% select(-X)
+```
+
+이제 파이프 라인을 생각해보자.
+
+일단 방문 고려요인, 인구통계정보, 관심 주제가 들어온다.
+
+그 다음 이미 학습된 선형회귀모형으로 예측을 하고 랭크 변환을 한다.
+
+그 다음 예측된 토픽에서 최근접 3개의 여행지를 추천한다.
+
+목적은 한번에 여러개 받지 말고 하나씩 나눠서 받도록 하자!
+
+```{r}
+input <- list()
+input[['목적']] <- c('역사')
+# '목적_역사','목적_K-POP','목적_자연','목적_미용','목적_전통','목적_패션','목적_쇼핑','목적_유흥'
+# character
+
+input[['국적']] <- factor('미국',
+                        levels= c("대만", "독일", "러시아", "말레이시아",
+                                  "몽골", "미국", "베트남", "싱가포르", "영국",
+                                  "인도", "인도네시아", "일본", "중국", "중동",
+                                  "캐나다", "태국",  "프랑스", "필리핀", "호주", "홍콩"))
+# "대만" "독일""러시아" "말레이시아" "몽골" "미국" "베트남" "싱가포르" "영국"       "인도"       "인도네시아" "일본" "중국" "중동" "캐나다""태국""프랑스" "필리핀" "호주" "홍콩"
+# factor
+
+input[['성별']] <- factor('남성', levels = c('남성', '여성'))
+# 남성, 여성
+# factor
+
+input[['나이']] <- factor('41-50세',levels=c("15-20세", "21-30세", "31-40세", "41-50세", "51-60세", "61세이상"))
+# "15-20세", "21-30세", "31-40세", "41-50세", "51-60세", "61세이상"
+# factor
+
+input[['highest_topic']] <- factor(3, levels = c(1,2,3,4))
+# 1 2 3 4
+# factor
+```
+
+```{r}
+input_df <- data.frame(목적_역사 = ifelse(any(input$목적 %in% '역사'), 1, 0),
+                    목적_KPOP = ifelse(any(input$목적 %in% 'POP'), 1, 0),
+                    목적_자연 = ifelse(any(input$목적 %in% '자연'), 1, 0),
+                    목적_미용 = ifelse(any(input$목적 %in% '미용'), 1, 0),
+                    목적_전통 = ifelse(any(input$목적 %in% '전통'), 1, 0),
+                    목적_패션 = ifelse(any(input$목적 %in% '패션'), 1, 0),
+                    목적_쇼핑 = ifelse(any(input$목적 %in% '쇼핑'), 1, 0),
+                    목적_유흥 = ifelse(any(input$목적 %in% '유흥'), 1, 0),
+                    국적 = input$국적,
+                    나이 = input$나이,
+                    성별 = input[['성별']],
+                    highest_topic=input$highest_topic,
+                    topic1=0, # 실제론 안들어감
+                    topic2=0,
+                    topic3=0,
+                    topic4=0)
+```
+
+```{r}
+X1 <- model.matrix(test4_model1, data=input_df)
+X2 <- model.matrix(test4_model2, data=input_df)
+X3 <- model.matrix(test4_model3, data=input_df)
+X4 <- model.matrix(test4_model4, data=input_df)
+
+# 인도인 중에 토픽4를 방문한 사람이 없다.
+model2_4$coefficients['highest_topic4:국적인도'] = 0
+model3_4$coefficients['highest_topic4:국적인도'] = 0
+model4_4$coefficients['highest_topic4:국적인도'] = 0
+
+
+yhat1 <- X1 %*% model1_4$coefficients
+yhat2 <- X2 %*% model2_4$coefficients
+yhat3 <- X3 %*% model3_4$coefficients
+yhat4 <- X4 %*% model4_4$coefficients
+
+estimated_df <- data.frame(topic1 = yhat1, topic2 = yhat2, topic3 = yhat3, topic4 = yhat4)
+```
+
+```{r}
+result <- data.frame(topic1 =yhat1, topic2 = yhat2, 
+                     topic3 = yhat3, topic4 = yhat4)
+
+eucl <- function(vector){
+    sum(vector^2)
+}
+
+topic_location <- lda_results2 %>% select(topic1, topic2, topic3, topic4)
+
+# Three attractions will be recommended
+recoomend3 <- order(apply(topic_location - as.numeric(result), 1, eucl)) <= 3
+recommend <- lda_results2[recoomend3,c('attraction')]
+```
+
+```{r}
+write.csv(recommend, 'Three_recommendation.csv')
+```
