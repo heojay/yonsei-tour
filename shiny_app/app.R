@@ -13,40 +13,47 @@ mapping <- left_join(mapping, link_list, by = 'attraction')
 # ui.R
 
 obj_list <- c('History', 'K-POP', 'Nature', 'Beauty', 'Tradition', 'Fashion', 'Shopping', 'Entertainment')
-con_list <- c('Taiwan', 'Germany', 'Russia', 'Malaysia', 'Mongol', 'Vietnam', 'Singapore', 'United Kingdom', 'India', 'Indonesia', 'Japan', 'China', 'Mid-East', 'Canada', 'Thailand', 'France', 'Philippines', 'Australia', 'Hong Kong')
+con_list <- c('Taiwan', 'Germany', 'Russia', 'Malaysia', 'Mongol', 'United States', 'Vietnam', 'Singapore', 'United Kingdom', 'India', 'Indonesia', 'Japan', 'China', 'Mid-East', 'Canada', 'Thailand', 'France', 'Philippines', 'Australia', 'Hong Kong')
 age_list <- c("-20", "21-30", "31-40", "41-50", "51-60", "61-")
+sex_list <- c("Male","Female")
+top_list <- c("Downtown","Uptown","Historic","Natural")
 
 obj_list_in <- c('역사','K-POP','자연','미용','전통','패션','쇼핑','유흥')
 con_list_in <- c("대만","독일","러시아","말레이시아","몽골","미국","베트남","싱가포르","영국","인도","인도네시아",
               "일본","중국","중동","캐나다","태국","프랑스","필리핀","호주","홍콩")
 age_list_in <- c("15-20세", "21-30세", "31-40세", "41-50세", "51-60세", "61세이상")
+sex_list_in <- c("남","여")
+top_list_in <- c(1,2,3,4)
 
 ui <- fluidPage(
   
   # App title ----
   headerPanel("Yonsei Tour Recommender"),
   
-  sidebarPanel(
-    h3("Tell Me Who You are"),    
-    wellPanel(
-      selectInput("input_obj", "What do you want to do?", choices = c("", obj_list)),
-      selectInput("input_age", "How old are you?", choices = c("", age_list)),
-      selectInput("input_con", "Where do you come form?", choices = c("", con_list)),
-      actionButton("submit", "Complete")
+  fluidRow(
+    sidebarPanel(
+      h3("Tell Me Who You are"),    
+      wellPanel(
+        selectInput("input_obj", "What do you want to do?", choices = c("", obj_list)),
+        selectInput("input_age", "How old are you?", choices = c("", age_list)),
+        selectInput("input_con", "Where do you come form?", choices = c("", con_list)),
+        selectInput("input_sex", "Are you male or female?", choices = c("", sex_list)),
+        selectInput("input_top", "Which topic are you interested in?", choices = c("", top_list)),
+        actionButton("submit", "Complete")
+      )
+    ),
+    
+    mainPanel(
+      fluidRow(
+        h3("The Atrractions you Might Be Interested in"),
+        column(4,
+               tableOutput("item_recom")
+        ),
+        column(8,
+               leafletOutput("mymap"))
+      )
     )
   ),
-  
-  mainPanel(
-    fluidRow(
-      h3("The Atrractions you Might Be Interested in"),
-      column(4,
-             tableOutput("item_recom")
-             ),
-      column(8,
-             leafletOutput("mymap"))
-    )
-  ),
-  
   
   fluidRow(
     column(4,
@@ -84,7 +91,9 @@ server <- function(input, output) {
       isolate(
         unique(c(obj_list_in[match(input$input_obj, obj_list)],
                  age_list_in[match(input$input_age, age_list)],
-                 con_list_in[match(input$input_con, con_list)]))
+                 con_list_in[match(input$input_con, con_list)],
+                 sex_list_in[match(input$input_sex, sex_list)],
+                 top_list_in[match(input$input_top, top_list)]))
       )
     
     # Run model
@@ -108,7 +117,9 @@ server <- function(input, output) {
       isolate(
         unique(c(obj_list_in[match(input$input_obj, obj_list)],
                  age_list_in[match(input$input_age, age_list)],
-                 con_list_in[match(input$input_con, con_list)]))
+                 con_list_in[match(input$input_con, con_list)],
+                 sex_list_in[match(input$input_sex, sex_list)],
+                 top_list_in[match(input$input_top, top_list)]))
       )
     
     # Run model
@@ -134,7 +145,9 @@ server <- function(input, output) {
       isolate(
         unique(c(obj_list_in[match(input$input_obj, obj_list)],
                  age_list_in[match(input$input_age, age_list)],
-                 con_list_in[match(input$input_con, con_list)]))
+                 con_list_in[match(input$input_con, con_list)],
+                 sex_list_in[match(input$input_sex, sex_list)],
+                 top_list_in[match(input$input_top, top_list)]))
       )
     
     if (input$submit != 0){
@@ -168,7 +181,9 @@ server <- function(input, output) {
       isolate(
         unique(c(obj_list_in[match(input$input_obj, obj_list)],
                  age_list_in[match(input$input_age, age_list)],
-                 con_list_in[match(input$input_con, con_list)]))
+                 con_list_in[match(input$input_con, con_list)],
+                 sex_list_in[match(input$input_sex, sex_list)],
+                 top_list_in[match(input$input_top, top_list)]))
       )
     
     if (input$submit != 0){
@@ -200,7 +215,9 @@ server <- function(input, output) {
       isolate(
         unique(c(obj_list_in[match(input$input_obj, obj_list)],
                  age_list_in[match(input$input_age, age_list)],
-                 con_list_in[match(input$input_con, con_list)]))
+                 con_list_in[match(input$input_con, con_list)],
+                 sex_list_in[match(input$input_sex, sex_list)],
+                 top_list_in[match(input$input_top, top_list)]))
       )
     
     if (input$submit != 0){
