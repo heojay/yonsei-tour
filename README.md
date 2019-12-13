@@ -17,7 +17,7 @@
 
 ### Tripadvisor 리뷰
 
-![](/Users/jaewonheo/Documents/yonsei-tour/mid_report_fig/trip_crawl.png)
+![](./mid_report_fig/trip_crawl.png)
 
 - TripAdvisor는 호텔 및 레스토랑 리뷰, 숙박 예약 및 기타 여행 관련 콘텐츠를 보여주는 미국 여행 웹사이트로 해외 유저들 개개인이 느끼고 경험한 바가 리뷰로 남겨져 있음
 - 외래관광객 실태조사의 <만족한 관광지>에 해당하는 관광지들을 추려, BeautifulSoup를 이용해 리뷰를 수집
@@ -96,13 +96,13 @@ Simplex를 종속 변수 y로 두는 회귀모형이 없는 관계로,  각 토�
 
 ## Shiny Application
 
-![](/Users/jaewonheo/Documents/yonsei-tour/mid_report_fig/prototype.png)
+![](./mid_report_fig/prototype.png)
 
 ### 접속
-[이 주소](https://yerinkwon.shinyapps.io/shiny_app/)로 접속하면 초기 화면이 생성된다.
+[이 주소](https://yonseitour.shinyapps.io/shiny_app/)로 접속하면 초기 화면이 생성된다.
 
 ### 입력
-화면 좌측의 사이드 판넬에서 방문 목적, 연령대, 국가를 선택하고 Complete 버튼을 누른다.
+화면 좌측의 사이드 판넬에서 방문 목적, 연령대, 국가, 성별, 토픽을 선택하고 Complete 버튼을 누른다.
 
 ### 출력
 세 개의 추천 관광지를 나타내는 리스트와 함께 각 관광지의 위치가 지도에 표시된다. 하단의 사진은 각 관광지를 대표하는 이미지를 보여준다.
