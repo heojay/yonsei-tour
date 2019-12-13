@@ -19,10 +19,6 @@ sex_list <- c("Male","Female")
 top_list <- c("Uptown","Downtown","Historic","Natural")
 
 obj_list_in <- c('역사','K-POP','자연','미용','전통','패션','쇼핑','유흥')
-con_list_in <- c(1:20)
-age_list_in <- c(1:6)
-sex_list_in <- c(1,2)
-top_list_in <- c(1,2,3,4)
 
 ui <- fluidPage(
   
@@ -88,13 +84,13 @@ server <- function(input, output) {
     # gather input in string
     user_detail <- 
       isolate(
-        unique(c(obj_list_in[match(input$input_obj, obj_list)],
+        c(obj_list_in[match(input$input_obj, obj_list)],
                  match(input$input_age, age_list),
                  match(input$input_con, con_list),
                  match(input$input_sex, sex_list),
-                 match(input$input_top, top_list)))
+                 match(input$input_top, top_list))
       )
-    print(input$input_sex, sex_list)
+    
     # Run model
     if(input$submit != 0){
       userdata <- filter(target_list, 목적 == user_detail[1], 나이 == user_detail[2], 국적 == user_detail[3], 성별 == user_detail[4], HT == user_detail[5])
@@ -112,11 +108,11 @@ server <- function(input, output) {
     # gather input in string
     user_detail <- 
       isolate(
-        unique(c(obj_list_in[match(input$input_obj, obj_list)],
-                 age_list_in[match(input$input_age, age_list)],
-                 con_list_in[match(input$input_con, con_list)],
-                 sex_list_in[match(input$input_sex, sex_list)],
-                 top_list_in[match(input$input_top, top_list)]))
+        c(obj_list_in[match(input$input_obj, obj_list)],
+          match(input$input_age, age_list),
+          match(input$input_con, con_list),
+          match(input$input_sex, sex_list),
+          match(input$input_top, top_list))
       )
     
     # Run model
@@ -140,11 +136,11 @@ server <- function(input, output) {
     # gather input in string
     user_detail <- 
       isolate(
-        unique(c(obj_list_in[match(input$input_obj, obj_list)],
-                 age_list_in[match(input$input_age, age_list)],
-                 con_list_in[match(input$input_con, con_list)],
-                 sex_list_in[match(input$input_sex, sex_list)],
-                 top_list_in[match(input$input_top, top_list)]))
+        c(obj_list_in[match(input$input_obj, obj_list)],
+          match(input$input_age, age_list),
+          match(input$input_con, con_list),
+          match(input$input_sex, sex_list),
+          match(input$input_top, top_list))
       )
     
     if (input$submit != 0){
@@ -176,11 +172,11 @@ server <- function(input, output) {
     # gather input in string
     user_detail <- 
       isolate(
-        unique(c(obj_list_in[match(input$input_obj, obj_list)],
-                 age_list_in[match(input$input_age, age_list)],
-                 con_list_in[match(input$input_con, con_list)],
-                 sex_list_in[match(input$input_sex, sex_list)],
-                 top_list_in[match(input$input_top, top_list)]))
+        c(obj_list_in[match(input$input_obj, obj_list)],
+          match(input$input_age, age_list),
+          match(input$input_con, con_list),
+          match(input$input_sex, sex_list),
+          match(input$input_top, top_list))
       )
     
     if (input$submit != 0){
@@ -210,11 +206,11 @@ server <- function(input, output) {
     # gather input in string
     user_detail <- 
       isolate(
-        unique(c(obj_list_in[match(input$input_obj, obj_list)],
-                 age_list_in[match(input$input_age, age_list)],
-                 con_list_in[match(input$input_con, con_list)],
-                 sex_list_in[match(input$input_sex, sex_list)],
-                 top_list_in[match(input$input_top, top_list)]))
+        c(obj_list_in[match(input$input_obj, obj_list)],
+          match(input$input_age, age_list),
+          match(input$input_con, con_list),
+          match(input$input_sex, sex_list),
+          match(input$input_top, top_list))
       )
     
     if (input$submit != 0){
